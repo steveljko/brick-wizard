@@ -1,0 +1,1415 @@
+{%- comment -%}
+  Wizard — multi-step "build & buy" flow in ONE section file.
+  Step 1: how many pets + how many people (one "Count group" block each) + one photo upload
+  Then:   Extras → Approve (paid rendering) → Review → cart/checkout.
+  Every price comes from real products/variants, so cart and checkout totals are always correct.
+{%- endcomment -%}
+
+{%- liquid
+  assign s = section.settings
+
+  assign has_groups = false
+  assign has_extras = false
+  for block in section.blocks
+    if block.type == 'figure' and block.settings.product != blank
+      assign has_groups = true
+    endif
+    if block.type == 'extra' and block.settings.product != blank
+      assign has_extras = true
+    endif
+  endfor
+
+  assign render_product = s.render_product
+  assign render_variant = render_product.selected_or_first_available_variant
+
+  assign max_files = s.max_files | append: ''
+  assign max_mb = s.max_photo_mb | append: ''
+  assign limits_text = s.limits_label | replace: '[count]', max_files | replace: '[size]', max_mb
+-%}
+
+<brickset-wizard
+  class="bw"
+  style="--bw-pad: {{ s.padding }}px; --bw-accent: {{ s.accent }}; --bw-ink: {{ s.ink }}; --bw-card: {{ s.card_bg }}; --bw-sticky-top: {{ s.sticky_offset }}px;"
+>
+  <script type="application/json" data-bw-config>
+    {
+      "moneyFormat": {{ shop.money_format | strip_html | json }},
+      "redirect": {{ s.redirect | json }},
+      "maxMb": {{ s.max_photo_mb | json }},
+      "maxFiles": {{ s.max_files | json }},
+      "resizePx": 2500,
+      "text": {
+        "continue": {{ s.continue_label | json }},
+        "checkout": {{ s.checkout_label | json }},
+        "stepText": {{ s.step_text | json }},
+        "noFigures": {{ s.msg_no_figures | json }},
+        "noPhoto": {{ s.error_photo | json }},
+        "extrasText": {{ s.error_extras_text | json }},
+        "approve": {{ s.error_approve | json }},
+        "tooBig": {{ s.error_too_big | json }},
+        "tooMany": {{ s.error_too_many | json }},
+        "notImage": {{ s.error_not_image | json }},
+        "cartError": {{ s.error_cart | json }},
+        "preparing": {{ s.preparing_label | json }},
+        "remove": {{ s.remove_label | json }},
+        "photosTitle": {{ s.photos_title | json }},
+        "photos": {{ s.photos_label | json }}
+      }
+    }
+  </script>
+
+  <ol class="bw-stepper" data-bw-stepper aria-label="Progress"></ol>
+
+  <div class="bw-summary">
+    <div class="bw-summary__step">
+      <span class="bw-summary__steptext" data-bw-steptext></span>
+      <span class="bw-progress" aria-hidden="true"><span class="bw-progress__bar" data-bw-progress></span></span>
+    </div>
+    <div class="bw-summary__total" data-bw-total hidden aria-live="polite">
+      <span class="bw-summary__label">{{ s.total_label }}</span>
+      <strong class="bw-summary__amount" data-bw-total-amount></strong>
+    </div>
+  </div>
+
+  {%- comment -%} ───────── Step 1: pets + people + photos ───────── {%- endcomment -%}
+  <section class="bw-step" data-bw-step="figures" data-label="{{ s.figures_label | escape }}" aria-labelledby="bw-{{ section.id }}-figures" hidden>
+    <h2 class="bw-h" id="bw-{{ section.id }}-figures" tabindex="-1">{{ s.figures_heading }}</h2>
+    {%- if s.figures_sub != blank -%}<p class="bw-sub">{{ s.figures_sub }}</p>{%- endif -%}
+
+    {%- for block in section.blocks -%}
+      {%- if block.type != 'figure' -%}{%- continue -%}{%- endif -%}
+
+      {%- if block.settings.product == blank -%}
+        {%- if request.design_mode -%}
+          <p class="bw-placeholder" {{ block.shopify_attributes }}>Count group: choose a product in the block settings.</p>
+        {%- endif -%}
+        {%- continue -%}
+      {%- endif -%}
+
+      {%- liquid
+        assign p = block.settings.product
+        assign lines = block.settings.card_lines | newline_to_br | split: '<br />'
+        assign group = 'bw-' | append: block.id
+        assign layout = 'grid'
+        if block.settings.list_layout
+          assign layout = 'list'
+        endif
+      -%}
+
+      <div class="bw-group" data-bw-group data-block-id="{{ block.id }}" data-err-select="{{ block.settings.error_select | escape }}" {{ block.shopify_attributes }}>
+        <h3 class="bw-group__h" id="{{ group }}-h">{{ block.settings.heading }}</h3>
+        {%- if block.settings.subheading != blank -%}<p class="bw-group__sub">{{ block.settings.subheading }}</p>{%- endif -%}
+
+        <div class="bw-opts bw-opts--{{ layout }}" role="radiogroup" aria-labelledby="{{ group }}-h" data-bw-options>
+          {%- for variant in p.variants -%}
+            {%- liquid
+              assign vi = forloop.index0
+              assign opt_icon = ''
+              assign opt_name = ''
+              assign opt_desc = ''
+              assign matched = false
+
+              for line in lines
+                assign parts = line | strip | split: '|'
+                if parts.size > 3
+                  assign key = parts[0] | strip
+                  if key == variant.option1
+                    assign opt_icon = parts[1] | strip
+                    assign opt_name = parts[2] | strip
+                    assign opt_desc = parts[3] | strip
+                    assign matched = true
+                    break
+                  endif
+                endif
+              endfor
+
+              unless matched
+                assign parts = lines[vi] | strip | split: '|'
+                if parts.size < 4
+                  assign opt_icon = parts[0] | strip
+                  assign opt_name = parts[1] | strip
+                  assign opt_desc = parts[2] | strip
+                endif
+              endunless
+
+              if opt_name == blank
+                assign opt_name = variant.title
+              endif
+
+              assign item_title = p.title
+              unless variant.title == 'Default Title'
+                assign item_title = item_title | append: ' · ' | append: opt_name
+              endunless
+            -%}
+
+            <label class="bw-opt{% unless variant.available %} is-disabled{% endunless %}">
+              <input
+                type="radio"
+                class="bw-vh"
+                name="{{ group }}"
+                value="{{ variant.id }}"
+                data-bw-option
+                data-price="{{ variant.price }}"
+                data-title="{{ item_title | escape }}"
+                {% unless variant.available %}disabled{% endunless %}
+              >
+              <span class="bw-opt__radio" aria-hidden="true"></span>
+              {%- if opt_icon != blank -%}<span class="bw-opt__icon" aria-hidden="true">{{ opt_icon }}</span>{%- endif -%}
+              <span class="bw-opt__body">
+                <span class="bw-opt__name">{{ opt_name }}</span>
+                {%- if opt_desc != blank -%}<span class="bw-opt__desc">{{ opt_desc }}</span>{%- endif -%}
+              </span>
+              <span class="bw-opt__price">
+                {%- if variant.available -%}
+                  <span class="bw-opt__now">
+                    {%- if s.price_prefix != blank -%}<small>{{ s.price_prefix }}</small> {% endif -%}
+                    {{- variant.price | money -}}
+                  </span>
+                  {%- if variant.compare_at_price > variant.price -%}
+                    <s class="bw-opt__was">{{ variant.compare_at_price | money }}</s>
+                  {%- endif -%}
+                {%- else -%}
+                  <span class="bw-opt__soldout">{{ s.sold_out_label }}</span>
+                {%- endif -%}
+              </span>
+            </label>
+          {%- endfor -%}
+        </div>
+
+        {%- if block.settings.allow_skip -%}
+          <button type="button" class="bw-none" data-bw-none aria-pressed="false">{{ block.settings.skip_label }}</button>
+        {%- endif -%}
+      </div>
+    {%- endfor -%}
+
+    {%- if has_groups -%}
+      <div class="bw-upload">
+        {%- if s.upload_heading != blank -%}<h3 class="bw-upload__h">{{ s.upload_heading }}</h3>{%- endif -%}
+        <label class="bw-drop" data-bw-drop>
+          <input type="file" class="bw-vh" accept="image/*,.heic,.heif" multiple data-bw-file>
+          <span class="bw-drop__title">{{ s.upload_title }}</span>
+          <span class="bw-btn bw-btn--outline">
+            <span data-bw-btn-first>{{ s.upload_button }}</span>
+            <span data-bw-btn-more hidden>{{ s.upload_more_label }}</span>
+          </span>
+          <span class="bw-drop__hint" data-bw-hint>{{ s.upload_hint }}</span>
+          <span class="bw-drop__limits">{{ limits_text }}</span>
+        </label>
+        <div class="bw-thumbs" data-bw-thumbs></div>
+        <p class="bw-error" data-bw-file-error role="alert"></p>
+        {%- if s.upload_note != blank -%}<p class="bw-note">{{ s.upload_note }}</p>{%- endif -%}
+      </div>
+    {%- endif -%}
+  </section>
+
+  {%- comment -%} ───────── Extras ───────── {%- endcomment -%}
+  {%- if has_extras -%}
+    <section class="bw-step" data-bw-step="extras" data-label="{{ s.extras_label | escape }}" aria-labelledby="bw-{{ section.id }}-extras" hidden>
+      <h2 class="bw-h" id="bw-{{ section.id }}-extras" tabindex="-1">{{ s.extras_heading }}</h2>
+      {%- if s.extras_note != blank -%}
+        <p class="bw-pill">
+          {%- if s.extras_note_badge != blank -%}<span class="bw-badge">{{ s.extras_note_badge }}</span>{%- endif -%}
+          {{ s.extras_note }}
+        </p>
+      {%- endif -%}
+      <div class="bw-extras">
+        {%- for block in section.blocks -%}
+          {%- if block.type == 'extra' and block.settings.product != blank -%}
+            {%- liquid
+              assign p = block.settings.product
+              assign v = p.selected_or_first_available_variant
+              assign img = block.settings.image | default: p.featured_image
+            -%}
+            <div
+              class="bw-extra{% unless v.available %} is-disabled{% endunless %}"
+              data-bw-extra
+              data-key="{{ block.id }}"
+              data-variant-id="{{ v.id }}"
+              data-price="{{ v.price }}"
+              data-title="{{ p.title | escape }}"
+              {{ block.shopify_attributes }}
+            >
+              <label class="bw-extra__label">
+                <input type="checkbox" class="bw-vh" data-bw-extra-check {% unless v.available %}disabled{% endunless %}>
+                {%- if block.settings.badge != blank -%}<span class="bw-badge bw-badge--float">{{ block.settings.badge }}</span>{%- endif -%}
+                <span class="bw-extra__media">
+                  {%- if img != blank -%}
+                    {{ img | image_url: width: 600 | image_tag: loading: 'lazy', sizes: '(min-width: 750px) 240px, 50vw', alt: p.title }}
+                  {%- endif -%}
+                  <span class="bw-extra__check" aria-hidden="true">✓</span>
+                </span>
+                <span class="bw-extra__title">{{ p.title }}</span>
+                {%- if block.settings.description != blank -%}<span class="bw-extra__desc">{{ block.settings.description }}</span>{%- endif -%}
+                <span class="bw-extra__price">
+                  {%- if v.available -%}{{ v.price | money }}{%- else -%}{{ s.sold_out_label }}{%- endif -%}
+                </span>
+              </label>
+              {%- if block.settings.needs_text -%}
+                <div class="bw-extra__text" data-bw-extra-text hidden>
+                  <input
+                    type="text"
+                    class="bw-input"
+                    maxlength="{{ block.settings.text_max }}"
+                    placeholder="{{ block.settings.text_placeholder | escape }}"
+                    aria-label="{{ block.settings.text_property | escape }}"
+                    enterkeyhint="next"
+                    autocomplete="off"
+                    data-property="{{ block.settings.text_property | escape }}"
+                    data-error="{{ block.settings.text_error | escape }}"
+                  >
+                </div>
+              {%- endif -%}
+            </div>
+          {%- endif -%}
+        {%- endfor -%}
+      </div>
+    </section>
+  {%- endif -%}
+
+  {%- comment -%} ───────── Approve (paid rendering) ───────── {%- endcomment -%}
+  {%- if render_product != blank -%}
+    <section
+      class="bw-step"
+      data-bw-step="approve"
+      data-label="{{ s.approve_label | escape }}"
+      data-render-variant="{{ render_variant.id }}"
+      data-render-price="{{ render_variant.price }}"
+      data-render-title="{{ render_product.title | escape }}"
+      data-render-sub="{{ s.yes_review_sub | escape }}"
+      aria-labelledby="bw-{{ section.id }}-approve"
+      hidden
+    >
+      <h2 class="bw-h" id="bw-{{ section.id }}-approve" tabindex="-1">{{ s.approve_heading }}</h2>
+      {%- if s.approve_text != blank -%}<p class="bw-sub bw-sub--narrow">{{ s.approve_text }}</p>{%- endif -%}
+      <div class="bw-approve" role="radiogroup" aria-labelledby="bw-{{ section.id }}-approve">
+        <label class="bw-choice" data-bw-choice>
+          <input type="radio" class="bw-vh" name="bw-render-{{ section.id }}" value="yes">
+          {%- if s.yes_image != blank -%}
+            {{ s.yes_image | image_url: width: 600 | image_tag: loading: 'lazy', class: 'bw-choice__img', alt: '' }}
+          {%- endif -%}
+          <span class="bw-choice__title">{{ s.yes_title }}</span>
+          <span class="bw-choice__text">{{ s.yes_text }}</span>
+          <span class="bw-choice__price">{{ render_variant.price | money }}</span>
+        </label>
+        <label class="bw-choice" data-bw-choice>
+          <input type="radio" class="bw-vh" name="bw-render-{{ section.id }}" value="no">
+          <span class="bw-choice__title">{{ s.no_title }}</span>
+          <span class="bw-choice__text">{{ s.no_text }}</span>
+          <span class="bw-choice__price">{{ s.no_price_label }}</span>
+        </label>
+      </div>
+    </section>
+  {%- endif -%}
+
+  {%- comment -%} ───────── Review ───────── {%- endcomment -%}
+  <section class="bw-step" data-bw-step="review" data-label="{{ s.review_label | escape }}" aria-labelledby="bw-{{ section.id }}-review" hidden>
+    <h2 class="bw-h" id="bw-{{ section.id }}-review" tabindex="-1">{{ s.review_heading }}</h2>
+    <div class="bw-review" data-bw-review></div>
+    <div class="bw-review-total">
+      <span>{{ s.total_label }}</span>
+      <strong data-bw-review-total></strong>
+    </div>
+  </section>
+
+  <p class="bw-alert" data-bw-alert role="alert"></p>
+
+  <div class="bw-nav">
+    <button type="button" class="bw-link" data-bw-back hidden>{{ s.back_label }}</button>
+    <button type="button" class="bw-btn bw-btn--primary bw-next" data-bw-next>{{ s.continue_label }}</button>
+  </div>
+</brickset-wizard>
+
+<style>
+brickset-wizard { display: block; }
+
+.bw {
+  /* Set per section: --bw-accent, --bw-ink, --bw-card, --bw-pad, --bw-sticky-top */
+  --bw-muted: color-mix(in srgb, currentColor 62%, transparent);
+  --bw-line: color-mix(in srgb, currentColor 14%, transparent);
+  --bw-tint: color-mix(in srgb, var(--bw-accent) 6%, var(--bw-card));
+  --bw-radius: 12px;
+  padding: var(--bw-pad, 40px) 16px;
+  font-family: inherit;
+}
+.bw [hidden] { display: none !important; }
+.bw-vh { position: absolute !important; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.bw-placeholder { max-width: 560px; margin: 0 auto 12px; padding: 16px; text-align: center; border: 1px dashed var(--bw-line); border-radius: var(--bw-radius); color: var(--bw-muted); }
+
+/* ── Stepper (desktop) ── */
+.bw-stepper { display: flex; justify-content: center; margin: 0 auto 40px; padding: 0; list-style: none; }
+.bw-stepper__item { position: relative; width: 84px; display: flex; flex-direction: column; align-items: center; gap: 8px;
+  font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--bw-muted); }
+.bw-stepper__item + .bw-stepper__item::before { content: ""; position: absolute; top: 15px; right: calc(50% + 22px);
+  width: calc(100% - 44px); height: 2px; background: var(--bw-line); }
+.bw-stepper__item.is-done::before, .bw-stepper__item.is-current::before { background: var(--bw-ink); }
+.bw-stepper__dot { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 600;
+  background: var(--bw-card); border: 1px solid var(--bw-line); color: inherit; }
+.bw-stepper__item.is-done, .bw-stepper__item.is-current { color: inherit; font-weight: 600; }
+.bw-stepper__item.is-done .bw-stepper__dot, .bw-stepper__item.is-current .bw-stepper__dot { background: var(--bw-ink); border-color: var(--bw-ink); color: #fff; }
+
+/* ── Summary: total on top ── */
+.bw-summary { max-width: 560px; margin: -16px auto 28px; display: flex; justify-content: center; align-items: center; }
+.bw-summary__step { display: none; }
+.bw-summary__total { display: inline-flex; align-items: baseline; gap: 8px; padding: 7px 16px; border-radius: 999px; background: var(--bw-card); border: 1px solid var(--bw-line); }
+.bw-summary__label { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--bw-muted); }
+.bw-summary__amount { font-size: 18px; font-weight: 800; white-space: nowrap; }
+.bw-summary__total.is-bump .bw-summary__amount { animation: bw-bump .3s ease-out; }
+.bw-progress { display: block; height: 3px; border-radius: 3px; background: var(--bw-line); overflow: hidden; }
+.bw-progress__bar { display: block; width: 0; height: 100%; border-radius: 3px; background: var(--bw-accent); transition: width .3s ease; }
+
+/* ── Step & headings ── */
+.bw-step { max-width: 760px; margin: 0 auto; text-align: center; }
+.bw-h { margin: 0 0 10px; font-size: clamp(24px, 4vw, 32px); line-height: 1.15; font-weight: 700; letter-spacing: -.01em; }
+.bw-h:focus { outline: none; }
+.bw-sub { margin: 0 auto 28px; font-size: 16px; color: var(--bw-muted); }
+.bw-sub--narrow { max-width: 340px; }
+
+/* ── Option rows ── */
+.bw-opts { max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; text-align: left; }
+.bw-opt { position: relative; display: flex; align-items: center; gap: 14px; padding: 18px 20px; cursor: pointer;
+  background: var(--bw-card); border: 2px solid var(--bw-line); border-radius: 14px;
+  transition: border-color .15s, background-color .15s, box-shadow .15s, transform .1s; }
+.bw-opt:hover { border-color: color-mix(in srgb, var(--bw-accent) 45%, var(--bw-card)); }
+.bw-opt:active { transform: scale(.99); }
+.bw-opt:has(input:focus-visible) { outline: 3px solid color-mix(in srgb, var(--bw-accent) 35%, transparent); outline-offset: 2px; }
+.bw-opt.is-selected { border-color: var(--bw-accent); background: var(--bw-tint); box-shadow: 0 4px 14px color-mix(in srgb, var(--bw-accent) 14%, transparent); }
+.bw-opt.is-disabled { opacity: .5; cursor: not-allowed; }
+.bw-opt__radio { flex: none; width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%; border: 2px solid #c9c9c9; background: #fff; transition: border-color .15s; }
+.bw-opt__radio::after { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--bw-accent); transform: scale(0); transition: transform .15s; }
+.bw-opt.is-selected .bw-opt__radio { border-color: var(--bw-accent); }
+.bw-opt.is-selected .bw-opt__radio::after { transform: scale(1); }
+.bw-opt__icon { flex: none; min-width: 30px; font-size: 24px; line-height: 1; text-align: center; white-space: nowrap; }
+.bw-opt__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.bw-opt__name { font-size: 17px; font-weight: 700; line-height: 1.2; }
+.bw-opt__desc { font-size: 14px; line-height: 1.35; color: var(--bw-muted); }
+.bw-opt__price { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; text-align: right; }
+.bw-opt__now { font-size: 18px; font-weight: 800; color: var(--bw-accent); white-space: nowrap; }
+.bw-opt__now small { font-size: 12px; font-weight: 600; }
+.bw-opt__was { font-size: 13px; color: var(--bw-muted); white-space: nowrap; }
+.bw-opt__soldout { font-size: 13px; font-weight: 700; color: var(--bw-muted); text-transform: uppercase; letter-spacing: .04em; }
+
+/* Grid layout: cards side by side */
+.bw-opts--grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 720px; }
+.bw-opts--grid .bw-opt { flex-direction: column; justify-content: flex-start; gap: 8px; padding: 22px 14px 18px; text-align: center; }
+.bw-opts--grid .bw-opt__radio { position: absolute; top: 12px; left: 12px; width: 20px; height: 20px; }
+.bw-opts--grid .bw-opt__radio::after { width: 9px; height: 9px; }
+.bw-opts--grid .bw-opt__icon { min-width: 0; font-size: 34px; margin-top: 4px; }
+.bw-opts--grid .bw-opt__body { flex: 1 1 auto; align-items: center; }
+.bw-opts--grid .bw-opt__price { align-items: center; text-align: center; margin-top: 2px; }
+
+
+/* ── First step: pets + people groups ── */
+.bw-group { max-width: 720px; margin: 0 auto 28px; }
+.bw-group + .bw-group { padding-top: 24px; border-top: 1px solid var(--bw-line); }
+.bw-group__h { margin: 0 0 4px; font-size: 19px; font-weight: 700; }
+.bw-group__sub { margin: 0 0 16px; font-size: 14px; color: var(--bw-muted); }
+.bw-group .bw-opts { transition: opacity .15s; }
+.bw-group.is-none .bw-opts { opacity: .45; }
+.bw-none { margin-top: 12px; display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; font: inherit; font-size: 14px; color: inherit;
+  background: var(--bw-card); border: 1.5px dashed var(--bw-line); border-radius: 999px; cursor: pointer; }
+.bw-none::before { content: ""; width: 14px; height: 14px; border-radius: 50%; border: 2px solid #c9c9c9; box-sizing: border-box; }
+.bw-none[aria-pressed="true"] { color: var(--bw-accent); border: 1.5px solid var(--bw-accent); background: var(--bw-tint); font-weight: 600; }
+.bw-none[aria-pressed="true"]::before { border-color: var(--bw-accent); background: radial-gradient(var(--bw-accent) 40%, transparent 45%); }
+.bw-step[data-bw-step="figures"] .bw-upload { max-width: 720px; padding-top: 24px; border-top: 1px solid var(--bw-line); }
+.bw-upload__h { margin: 0 0 14px; font-size: 19px; font-weight: 700; }
+
+/* ── Upload ── */
+.bw-upload { max-width: 420px; margin: 24px auto 0; }
+.bw-drop { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 24px; cursor: pointer;
+  border: 1.5px dashed color-mix(in srgb, currentColor 25%, transparent); border-radius: var(--bw-radius); transition: background .15s, border-color .15s, opacity .15s; }
+.bw-drop:has(input:focus-visible) { outline: 3px solid color-mix(in srgb, var(--bw-accent) 35%, transparent); outline-offset: 2px; }
+.bw-drop.is-over, .bw-drop.has-file { background: var(--bw-card); border-color: var(--bw-ink); }
+.bw-drop.has-file { border-style: solid; }
+.bw-drop.is-busy { opacity: .6; cursor: progress; }
+.bw-drop__title { font-size: 14px; font-weight: 600; }
+.bw-drop__hint, .bw-drop__limits { font-size: 12px; color: var(--bw-muted); }
+.bw-drop__limits { font-weight: 600; }
+.bw-note { margin: 14px 0 0; font-size: 13px; color: var(--bw-muted); }
+
+.bw-thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 10px; margin-top: 14px; }
+.bw-thumbs:empty { display: none; }
+.bw-thumb { position: relative; aspect-ratio: 1; overflow: hidden; border-radius: 10px; background: #eee; border: 1px solid var(--bw-line); animation: bw-pop .2s ease-out; }
+.bw-thumb img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.bw-thumb__ph { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; width: 100%; height: 100%; padding: 6px; box-sizing: border-box; }
+.bw-thumb__ph-icon { font-size: 24px; }
+.bw-thumb__ph-name { max-width: 100%; font-size: 10px; color: #555; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bw-thumb__size { position: absolute; left: 0; right: 0; bottom: 0; padding: 3px 6px; font-size: 10px; color: #fff; text-align: left; background: linear-gradient(transparent, rgba(0,0,0,.6)); }
+.bw-thumb__remove { position: absolute; top: 5px; right: 5px; width: 24px; height: 24px; padding: 0; display: grid; place-items: center;
+  border: 0; border-radius: 50%; background: rgba(17,17,17,.78); color: #fff; font-size: 15px; line-height: 1; cursor: pointer; }
+.bw-thumb__remove:hover { background: var(--bw-accent); }
+
+/* ── Buttons & links ── */
+.bw-btn { display: inline-flex; justify-content: center; align-items: center; padding: 13px 30px; font: inherit; font-weight: 600;
+  border: 0; border-radius: 999px; cursor: pointer; -webkit-appearance: none; appearance: none; }
+.bw-btn--primary { background: var(--bw-ink); color: #fff; }
+.bw-btn--primary:focus-visible { outline: 3px solid color-mix(in srgb, var(--bw-ink) 35%, transparent); outline-offset: 2px; }
+.bw-btn--outline { padding: 9px 20px; font-weight: 500; background: transparent; border: 1px solid currentColor; }
+.bw-btn.is-loading { opacity: .7; pointer-events: none; }
+.bw-link { padding: 0; font: inherit; color: var(--bw-muted); text-decoration: underline; background: none; border: 0; cursor: pointer; }
+
+/* ── Extras ── */
+.bw-pill { display: inline-flex; align-items: center; gap: 10px; margin: 0 0 28px; padding: 4px 14px 4px 4px; font-size: 14px;
+  border-radius: 999px; background: color-mix(in srgb, var(--bw-accent) 12%, var(--bw-card)); }
+.bw-badge { padding: 4px 9px; font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #fff; background: var(--bw-ink); border-radius: 999px; }
+.bw-badge--float { position: absolute; top: 8px; left: 8px; z-index: 1; }
+.bw-extras { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; text-align: left; }
+.bw-extra { background: var(--bw-card); border: 1px solid var(--bw-line); border-radius: var(--bw-radius); transition: border-color .15s, box-shadow .15s, background-color .15s; }
+.bw-extra.is-selected { border-color: var(--bw-accent); background: var(--bw-tint); box-shadow: 0 0 0 1px var(--bw-accent); }
+.bw-extra.is-disabled { opacity: .5; }
+.bw-extra:has(input[type="checkbox"]:focus-visible) { outline: 3px solid color-mix(in srgb, var(--bw-accent) 35%, transparent); outline-offset: 2px; }
+.bw-extra__label { position: relative; display: flex; flex-direction: column; gap: 6px; padding: 14px; cursor: pointer; }
+.bw-extra.is-disabled .bw-extra__label { cursor: not-allowed; }
+.bw-extra__media { position: relative; display: block; aspect-ratio: 1; margin-bottom: 8px; overflow: hidden; border-radius: 8px; background: #eee; }
+.bw-extra__media img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.bw-extra__check { position: absolute; right: 8px; bottom: 8px; width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%;
+  background: var(--bw-ink); color: #fff; font-size: 14px; opacity: 0; transform: scale(.8); transition: .15s; }
+.bw-extra.is-selected .bw-extra__check { opacity: 1; transform: none; }
+.bw-extra__title { font-weight: 600; }
+.bw-extra__desc { font-size: 13px; color: var(--bw-muted); }
+.bw-extra__price { margin-top: 6px; font-weight: 600; }
+.bw-extra__text { padding: 0 14px 14px; }
+.bw-input { width: 100%; box-sizing: border-box; padding: 10px 12px; font: inherit; color: inherit; background: var(--bw-card); border: 1px solid var(--bw-line); border-radius: 8px; }
+.bw-input:focus { outline: 2px solid var(--bw-accent); outline-offset: 0; }
+
+/* ── Approve ── */
+.bw-approve { max-width: 560px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.bw-choice { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 8px; padding: 14px 16px 20px; cursor: pointer;
+  background: var(--bw-card); border: 1px solid var(--bw-line); border-radius: var(--bw-radius); transition: border-color .15s, box-shadow .15s, background-color .15s; }
+.bw-choice:has(input:focus-visible) { outline: 3px solid color-mix(in srgb, var(--bw-accent) 35%, transparent); outline-offset: 2px; }
+.bw-choice.is-selected { border-color: var(--bw-accent); background: var(--bw-tint); box-shadow: 0 0 0 1px var(--bw-accent); }
+.bw-choice__img { width: 100%; height: auto; border-radius: 8px; }
+.bw-choice__title { font-size: 16px; font-weight: 600; }
+.bw-choice__text { font-size: 13px; color: var(--bw-muted); }
+.bw-choice__price { font-size: 13px; }
+
+/* ── Review ── */
+.bw-review { max-width: 486px; margin: 0 auto; text-align: left; }
+.bw-row { display: flex; justify-content: space-between; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--bw-line); }
+.bw-row__sub { margin-top: 4px; font-size: 13px; color: var(--bw-muted); }
+.bw-row__thumbs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.bw-row__thumb { display: grid; place-items: center; width: 48px; height: 48px; object-fit: cover; border-radius: 6px; background: #eee; font-size: 18px; }
+.bw-row__price { font-weight: 600; white-space: nowrap; }
+.bw-review-total { max-width: 486px; margin: 0 auto; padding-top: 18px; display: flex; justify-content: space-between; align-items: baseline; font-size: 18px; }
+.bw-review-total strong { font-size: 22px; }
+
+/* ── Navigation & alert ── */
+.bw-nav { max-width: 560px; margin: 32px auto 0; display: flex; justify-content: space-between; align-items: center; gap: 16px; transition: transform .2s ease; }
+.bw-next { margin-left: auto; min-width: 180px; }
+.bw-error { margin: 8px 0 0; font-size: 13px; color: var(--bw-accent); }
+.bw-error:empty, .bw-alert:empty { display: none; }
+.bw-alert { max-width: 560px; margin: 20px auto 0; display: flex; align-items: center; gap: 10px; padding: 12px 14px; box-sizing: border-box;
+  font-size: 14px; font-weight: 600; text-align: left; color: var(--bw-accent);
+  background: var(--bw-tint); border: 1px solid var(--bw-accent); border-radius: 10px; animation: bw-pop .2s ease-out; }
+.bw-alert::before { content: "!"; flex: none; width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%;
+  background: var(--bw-accent); color: #fff; font-size: 13px; font-weight: 800; }
+
+/* ── Invalid state ── */
+.bw-invalid { animation: bw-shake .4s ease-in-out; }
+.bw-opts.bw-invalid .bw-opt, .bw-approve.bw-invalid .bw-choice { border-color: var(--bw-accent); }
+.bw-drop.bw-invalid { border-color: var(--bw-accent); border-style: dashed; background: var(--bw-tint); }
+.bw-input.bw-invalid { border-color: var(--bw-accent); }
+
+@keyframes bw-shake { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-6px); } 40% { transform: translateX(6px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(4px); } }
+@keyframes bw-pop { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+@keyframes bw-bump { 0%, 100% { transform: scale(1); } 40% { transform: scale(1.12); color: var(--bw-accent); } }
+
+/* ── Phones ── */
+@media (max-width: 749px) {
+  .bw { padding: 0 16px calc(96px + env(safe-area-inset-bottom)); }
+
+  /* Sticky top bar: step + progress + total */
+  .bw-stepper { display: none; }
+  .bw-summary { position: sticky; top: var(--bw-sticky-top, 0px); z-index: 5; max-width: none; margin: 0 -16px 20px; padding: 12px 16px 10px;
+    justify-content: space-between; gap: 16px; background: color-mix(in srgb, var(--bw-card) 96%, transparent);
+    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); border-bottom: 1px solid var(--bw-line); }
+  .bw-summary__step { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 7px; }
+  .bw-summary__steptext { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bw-summary__total { flex-direction: column; align-items: flex-end; gap: 1px; padding: 0; background: none; border: 0; }
+  .bw-summary__label { font-size: 10px; }
+  .bw-summary__amount { font-size: 17px; }
+
+  .bw-h { margin-bottom: 6px; font-size: 24px; }
+  .bw-sub { margin-bottom: 18px; font-size: 14px; }
+
+  .bw-opts { gap: 10px; }
+  .bw-opt { min-height: 64px; padding: 14px; gap: 12px; border-radius: 12px; box-sizing: border-box; }
+  .bw-opt__icon { min-width: 26px; font-size: 22px; }
+  .bw-opt__name { font-size: 15px; }
+  .bw-opt__desc { font-size: 13px; }
+  .bw-opt__now { font-size: 16px; }
+  .bw-opt__was { font-size: 12px; }
+
+  .bw-opts--grid { gap: 8px; }
+  .bw-opts--grid .bw-opt { min-height: 0; padding: 26px 6px 12px; gap: 6px; }
+  .bw-opts--grid .bw-opt__radio { top: 8px; left: 8px; width: 18px; height: 18px; }
+  .bw-opts--grid .bw-opt__radio::after { width: 8px; height: 8px; }
+  .bw-opts--grid .bw-opt__icon { font-size: 26px; margin-top: 0; }
+  .bw-opts--grid .bw-opt__name { font-size: 14px; }
+  .bw-opts--grid .bw-opt__desc { font-size: 11.5px; }
+  .bw-opts--grid .bw-opt__now { font-size: 14px; }
+  .bw-opts--grid .bw-opt__was { font-size: 11px; }
+
+  .bw-group { margin-bottom: 22px; }
+  .bw-group + .bw-group { padding-top: 18px; }
+  .bw-group__h, .bw-upload__h { font-size: 17px; }
+  .bw-group__sub { margin-bottom: 12px; font-size: 13px; }
+  .bw-none { margin-top: 10px; padding: 10px 16px; }
+
+  .bw-upload { margin-top: 18px; }
+  .bw-drop { padding: 18px 14px; gap: 8px; }
+  .bw-drop .bw-btn--outline { padding: 11px 22px; }
+  .bw-drop:not(.is-busy) .bw-drop__hint { display: none; } /* no drag & drop on phones; still shows "Preparing photos…" */
+  .bw-thumbs { grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .bw-thumb__remove { top: 4px; right: 4px; width: 28px; height: 28px; }
+
+  .bw-pill { margin-bottom: 18px; font-size: 13px; }
+  .bw-extras { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .bw-extra__label { padding: 10px; gap: 4px; }
+  .bw-extra__title { font-size: 14px; }
+  .bw-extra__desc { font-size: 12px; }
+  .bw-extra__text { padding: 0 10px 10px; }
+  .bw-input { font-size: 16px; } /* 16px stops iOS from zooming into the field */
+
+  .bw-approve { grid-template-columns: 1fr; gap: 10px; }
+  .bw-choice { flex-direction: row; flex-wrap: wrap; justify-content: flex-start; align-items: center; gap: 4px 12px; padding: 14px; text-align: left; }
+  .bw-choice__img { flex: none; width: 88px; height: 88px; object-fit: cover; }
+  .bw-choice__title, .bw-choice__text, .bw-choice__price { flex: 1 1 calc(100% - 100px); }
+  .bw-choice:not(:has(img)) > span { flex-basis: 100%; }
+  .bw-choice__price { font-weight: 700; }
+
+  /* Sticky bottom action bar */
+  .bw-nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; max-width: none; margin: 0; gap: 12px;
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); background: var(--bw-card);
+    border-top: 1px solid var(--bw-line); box-shadow: 0 -6px 20px rgba(0,0,0,.06); }
+  .bw-nav .bw-link { padding: 12px 4px; }
+  .bw-next { flex: 1; min-width: 0; padding: 15px 20px; font-size: 16px; }
+  .bw.is-offscreen .bw-nav { transform: translateY(110%); }
+  .bw-alert { position: fixed; left: 12px; right: 12px; bottom: calc(84px + env(safe-area-inset-bottom)); z-index: 21; margin: 0;
+    background: var(--bw-card); box-shadow: 0 6px 20px rgba(0,0,0,.12); }
+
+  .bw-row { padding: 12px 0; }
+  .bw-review-total { font-size: 16px; }
+  .bw-review-total strong { font-size: 20px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bw *, .bw *::before, .bw *::after { animation: none !important; transition: none !important; }
+}
+</style>
+
+<script>
+{% raw %}
+(() => {
+  'use strict';
+  if (customElements.get('brickset-wizard')) return;
+
+  const ROOT = (window.Shopify && Shopify.routes && Shopify.routes.root) || '/';
+  const MB = 1024 * 1024;
+  const RESIZABLE = /^image\/(jpeg|png|webp)$/i;
+  const IMAGE_EXT = /\.(jpe?g|png|webp|heic|heif)$/i;
+  const SHRINK_ABOVE = 4 * MB; // photos smaller than this and within resizePx are uploaded untouched
+
+  /* ---------- helpers ---------- */
+
+  const toInt = (v) => parseInt(v, 10) || 0;
+  const fill = (tpl, vars) => String(tpl || '').replace(/\[(\w+)\]/g, (m, k) => (k in vars ? vars[k] : m));
+  const isImage = (f) => /^image\//.test(f.type) || IMAGE_EXT.test(f.name);
+  const prettySize = (b) => (b >= MB ? (b / MB).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB');
+
+  function el(tag, className, text) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text != null) node.textContent = text;
+    return node;
+  }
+
+  function formatMoney(cents, format) {
+    format = format || '{{amount}}';
+    const match = format.match(/\{\{\s*(\w+)\s*\}\}/);
+    const styles = {
+      amount: [2, ',', '.'],
+      amount_no_decimals: [0, ',', '.'],
+      amount_with_comma_separator: [2, '.', ','],
+      amount_no_decimals_with_comma_separator: [0, '.', ','],
+      amount_with_space_separator: [2, ' ', ','],
+      amount_no_decimals_with_space_separator: [0, ' ', ','],
+      amount_with_apostrophe_separator: [2, "'", '.'],
+    };
+    const [prec, thou, dec] = (match && styles[match[1]]) || styles.amount;
+    const [whole, frac] = (cents / 100).toFixed(prec).split('.');
+    const value = whole.replace(/\B(?=(\d{3})+(?!\d))/g, thou) + (frac ? dec + frac : '');
+    return match ? format.replace(match[0], value) : value;
+  }
+
+  /** Downscale big JPEG/PNG/WEBP photos in the browser. Returns the original file when that is not possible or not smaller. */
+  async function shrinkImage(file, maxPx) {
+    if (!RESIZABLE.test(file.type) || typeof createImageBitmap !== 'function') return file;
+    let bitmap;
+    try {
+      bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+    } catch (e) {
+      try { bitmap = await createImageBitmap(file); } catch (e2) { return file; }
+    }
+    const scale = Math.min(1, maxPx / Math.max(bitmap.width, bitmap.height));
+    if (scale === 1 && file.size <= SHRINK_ABOVE) {
+      if (bitmap.close) bitmap.close();
+      return file;
+    }
+    const canvas = el('canvas');
+    canvas.width = Math.round(bitmap.width * scale);
+    canvas.height = Math.round(bitmap.height * scale);
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#fff'; // transparent PNGs get a white background in JPEG
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    if (bitmap.close) bitmap.close();
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.9));
+    if (!blob || blob.size >= file.size) return file;
+    return new File([blob], file.name.replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg', lastModified: Date.now() });
+  }
+
+  async function errorText(res) {
+    try {
+      const json = await res.json();
+      return json.description || json.message || '';
+    } catch (e) {
+      return '';
+    }
+  }
+
+  /* ---------- component ---------- */
+
+  class BricksetWizard extends HTMLElement {
+    connectedCallback() {
+      if (this.ready) return;
+      this.steps = Array.from(this.querySelectorAll('[data-bw-step]'));
+      if (!this.steps.length) return;
+
+      const cfgNode = this.querySelector('[data-bw-config]');
+      this.cfg = cfgNode ? JSON.parse(cfgNode.textContent) : {};
+      this.t = this.cfg.text || {};
+      this.maxFiles = Number(this.cfg.maxFiles) || 5;
+      this.maxMb = Number(this.cfg.maxMb) || 10;
+
+      this.ui = {
+        stepper: this.querySelector('[data-bw-stepper]'),
+        stepText: this.querySelector('[data-bw-steptext]'),
+        progress: this.querySelector('[data-bw-progress]'),
+        total: this.querySelector('[data-bw-total]'),
+        totalAmount: this.querySelector('[data-bw-total-amount]'),
+        drop: this.querySelector('[data-bw-drop]'),
+        fileInput: this.querySelector('[data-bw-file]'),
+        hint: this.querySelector('[data-bw-hint]'),
+        thumbs: this.querySelector('[data-bw-thumbs]'),
+        fileError: this.querySelector('[data-bw-file-error]'),
+        review: this.querySelector('[data-bw-review]'),
+        reviewTotal: this.querySelector('[data-bw-review-total]'),
+        alert: this.querySelector('[data-bw-alert]'),
+        back: this.querySelector('[data-bw-back]'),
+        next: this.querySelector('[data-bw-next]'),
+      };
+
+      this.state = { groups: new Map(), photos: [], processing: false, extras: new Map(), render: null };
+      this.index = 0;
+      this.busy = false;
+      this.lastTotal = null;
+
+      this.buildStepper();
+      this.bindGroups();
+      this.bindUpload();
+      this.bindExtras();
+      this.bindApprove();
+
+      this.ui.next.addEventListener('click', () => this.next());
+      this.ui.back.addEventListener('click', () => this.go(this.index - 1, { focus: true }));
+
+      // Phones: hide the fixed bottom bar while the wizard is scrolled out of view.
+      if ('IntersectionObserver' in window) {
+        this.observer = new IntersectionObserver(([entry]) => this.classList.toggle('is-offscreen', !entry.isIntersecting));
+        this.observer.observe(this);
+      }
+
+      this.go(0, { initial: true });
+      this.ready = true;
+    }
+
+    disconnectedCallback() {
+      if (this.observer) this.observer.disconnect();
+      if (this.state) this.state.photos.forEach((p) => URL.revokeObjectURL(p.url));
+    }
+
+    tx(key, fallback) {
+      return this.t[key] || fallback;
+    }
+
+    money(cents) {
+      return formatMoney(cents, this.cfg.moneyFormat);
+    }
+
+    get current() {
+      return this.steps[this.index];
+    }
+
+    /* ----- stepper ----- */
+
+    buildStepper() {
+      this.ui.stepper.replaceChildren(
+        ...this.steps.map((step, i) => {
+          const li = el('li', 'bw-stepper__item');
+          li.append(el('span', 'bw-stepper__dot', String(i + 1)), el('span', 'bw-stepper__label', step.dataset.label || ''));
+          return li;
+        })
+      );
+    }
+
+    /* ----- pets / people groups (first step) ----- */
+
+    bindGroups() {
+      this.querySelectorAll('[data-bw-group]').forEach((group) => {
+        const st = { variantId: null, price: 0, title: '', none: false, el: group };
+        this.state.groups.set(group.dataset.blockId, st);
+
+        const options = Array.from(group.querySelectorAll('[data-bw-option]'));
+        const noneBtn = group.querySelector('[data-bw-none]');
+        const mark = () => {
+          options.forEach((o) => o.closest('.bw-opt').classList.toggle('is-selected', o.checked));
+          group.classList.toggle('is-none', st.none);
+          if (noneBtn) noneBtn.setAttribute('aria-pressed', String(st.none));
+        };
+
+        options.forEach((input) =>
+          input.addEventListener('change', () => {
+            if (!input.checked) return;
+            Object.assign(st, { variantId: input.value, price: toInt(input.dataset.price), title: input.dataset.title, none: false });
+            mark();
+            this.clearError();
+            this.refresh();
+          })
+        );
+
+        if (noneBtn) {
+          noneBtn.addEventListener('click', () => {
+            const none = !st.none;
+            Object.assign(st, { none, variantId: null, price: 0, title: '' });
+            options.forEach((o) => (o.checked = false));
+            mark();
+            this.clearError();
+            this.refresh();
+          });
+        }
+      });
+    }
+
+    chosenGroups() {
+      return Array.from(this.state.groups.values()).filter((g) => g.variantId);
+    }
+
+    /* ----- photo upload (first step) ----- */
+
+    bindUpload() {
+      const { drop, fileInput, thumbs } = this.ui;
+      if (!drop) return;
+      fileInput.addEventListener('change', () => {
+        const files = Array.from(fileInput.files || []);
+        fileInput.value = ''; // lets the same photo be picked again after removing it
+        if (files.length) this.addPhotos(files);
+      });
+      ['dragenter', 'dragover'].forEach((type) =>
+        drop.addEventListener(type, (e) => { e.preventDefault(); drop.classList.add('is-over'); })
+      );
+      ['dragleave', 'drop'].forEach((type) =>
+        drop.addEventListener(type, (e) => { e.preventDefault(); drop.classList.remove('is-over'); })
+      );
+      drop.addEventListener('drop', (e) => {
+        const files = Array.from((e.dataTransfer && e.dataTransfer.files) || []);
+        if (files.length) this.addPhotos(files);
+      });
+      thumbs.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-bw-remove]');
+        if (btn) this.removePhoto(toInt(btn.dataset.bwRemove));
+      });
+    }
+
+    async addPhotos(files) {
+      const st = this.state;
+      if (st.processing) return;
+      const { drop, hint, fileError } = this.ui;
+      const hintText = hint.textContent;
+      const maxBytes = this.maxMb * MB;
+      const problems = new Set();
+
+      st.processing = true;
+      drop.classList.add('is-busy');
+      hint.textContent = this.tx('preparing', 'Preparing photos…');
+
+      for (const original of files) {
+        if (!isImage(original)) {
+          problems.add(fill(this.tx('notImage', '“[file]” is not an image.'), { file: original.name }));
+          continue;
+        }
+        if (st.photos.length >= this.maxFiles) {
+          problems.add(fill(this.tx('tooMany', 'You can upload up to [count] photos.'), { count: this.maxFiles }));
+          break;
+        }
+        if (st.photos.some((p) => p.name === original.name && p.originalSize === original.size)) continue;
+
+        const file = await shrinkImage(original, this.cfg.resizePx || 2500);
+        if (file.size > maxBytes) {
+          problems.add(fill(this.tx('tooBig', '“[file]” is larger than [size] MB.'), { file: original.name, size: this.maxMb }));
+          continue;
+        }
+        st.photos.push({ file, name: original.name, originalSize: original.size, url: URL.createObjectURL(file) });
+      }
+
+      st.processing = false;
+      drop.classList.remove('is-busy');
+      hint.textContent = hintText;
+      fileError.textContent = Array.from(problems).join(' ');
+      this.renderThumbs();
+      if (st.photos.length) this.clearError();
+      this.refresh();
+    }
+
+    removePhoto(index) {
+      const [removed] = this.state.photos.splice(index, 1);
+      if (removed) URL.revokeObjectURL(removed.url);
+      this.ui.fileError.textContent = '';
+      this.renderThumbs();
+      this.refresh();
+    }
+
+    /** <img> for a photo, or a camera placeholder when the browser can't preview it (e.g. HEIC in Chrome). */
+    photoPreview(photo, className) {
+      const placeholder = () => {
+        const ph = el('span', className ? className + ' bw-thumb__ph' : 'bw-thumb__ph');
+        ph.append(el('span', 'bw-thumb__ph-icon', '📷'));
+        if (!className) ph.append(el('span', 'bw-thumb__ph-name', photo.name));
+        return ph;
+      };
+      if (/heic|heif/i.test(photo.file.type) || /\.(heic|heif)$/i.test(photo.name)) return placeholder();
+      const img = el('img', className || '');
+      img.src = photo.url;
+      img.alt = photo.name;
+      img.addEventListener('error', () => img.replaceWith(placeholder()), { once: true });
+      return img;
+    }
+
+    renderThumbs() {
+      const { photos } = this.state;
+      const { drop, thumbs } = this.ui;
+      const removeLabel = this.tx('remove', 'Remove');
+      thumbs.replaceChildren(
+        ...photos.map((photo, i) => {
+          const box = el('div', 'bw-thumb');
+          const btn = el('button', 'bw-thumb__remove', '×');
+          btn.type = 'button';
+          btn.dataset.bwRemove = i;
+          btn.setAttribute('aria-label', removeLabel + ' ' + photo.name);
+          box.append(this.photoPreview(photo), el('span', 'bw-thumb__size', prettySize(photo.file.size)), btn);
+          return box;
+        })
+      );
+      const hasPhotos = photos.length > 0;
+      drop.classList.toggle('has-file', hasPhotos);
+      drop.querySelector('[data-bw-btn-first]').hidden = hasPhotos;
+      drop.querySelector('[data-bw-btn-more]').hidden = !hasPhotos;
+      drop.hidden = photos.length >= this.maxFiles;
+    }
+
+    /* ----- extras ----- */
+
+    bindExtras() {
+      this.querySelectorAll('[data-bw-extra]').forEach((box) => {
+        const check = box.querySelector('[data-bw-extra-check]');
+        const textWrap = box.querySelector('[data-bw-extra-text]');
+        const input = textWrap ? textWrap.querySelector('input') : null;
+        const extra = {
+          variantId: box.dataset.variantId,
+          price: toInt(box.dataset.price),
+          title: box.dataset.title,
+          input,
+          property: input ? input.dataset.property || 'Text' : null,
+          error: input ? input.dataset.error : '',
+          selected: false,
+        };
+        this.state.extras.set(box.dataset.key, extra);
+
+        check.addEventListener('change', () => {
+          extra.selected = check.checked;
+          box.classList.toggle('is-selected', check.checked);
+          if (textWrap) {
+            textWrap.hidden = !check.checked;
+            if (check.checked) input.focus({ preventScroll: true });
+          }
+          this.clearError();
+          this.refresh();
+        });
+
+        if (input) {
+          input.addEventListener('input', () => this.clearError());
+          input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); this.next(); }
+          });
+        }
+      });
+    }
+
+    selectedExtras() {
+      return Array.from(this.state.extras.values()).filter((x) => x.selected);
+    }
+
+    extraText(extra) {
+      return extra.input ? extra.input.value.trim() : '';
+    }
+
+    /* ----- approve ----- */
+
+    bindApprove() {
+      const choices = Array.from(this.querySelectorAll('[data-bw-choice]'));
+      choices.forEach((choice) => {
+        const radio = choice.querySelector('input');
+        radio.addEventListener('change', () => {
+          this.state.render = radio.value === 'yes';
+          choices.forEach((c) => c.classList.toggle('is-selected', c.querySelector('input').checked));
+          this.clearError();
+          this.refresh();
+        });
+      });
+    }
+
+    renderInfo() {
+      const step = this.querySelector('[data-bw-step="approve"]');
+      if (!step) return null;
+      return {
+        variantId: step.dataset.renderVariant,
+        price: toInt(step.dataset.renderPrice),
+        title: step.dataset.renderTitle,
+        sub: step.dataset.renderSub,
+      };
+    }
+
+    /* ----- totals ----- */
+
+    totalCents() {
+      let sum = 0;
+      this.chosenGroups().forEach((g) => { sum += g.price; });
+      this.selectedExtras().forEach((x) => { sum += x.price; });
+      const render = this.renderInfo();
+      if (this.state.render && render) sum += render.price;
+      return sum;
+    }
+
+    updateTotal() {
+      const total = this.totalCents();
+      this.ui.total.hidden = total === 0;
+      if (total === this.lastTotal) return;
+      this.ui.totalAmount.textContent = this.money(total);
+      if (this.lastTotal !== null && total > 0) {
+        this.ui.total.classList.remove('is-bump');
+        void this.ui.total.offsetWidth; // restart animation
+        this.ui.total.classList.add('is-bump');
+      }
+      this.lastTotal = total;
+    }
+
+    /* ----- navigation ----- */
+
+    /** What is missing on a step: { msg, target, focus } or null. */
+    validate(step) {
+      switch (step.dataset.bwStep) {
+        case 'figures': {
+          for (const g of this.state.groups.values()) {
+            if (!g.variantId && !g.none) {
+              return { msg: g.el.dataset.errSelect || 'Please make a selection.', target: g.el.querySelector('[data-bw-options]') };
+            }
+          }
+          if (this.state.groups.size && !this.chosenGroups().length) {
+            return { msg: this.tx('noFigures', 'Please choose at least one figure.'), target: this.querySelector('[data-bw-options]') };
+          }
+          if (this.state.processing) return { msg: this.tx('preparing', 'Preparing photos…') };
+          if (this.ui.drop && !this.state.photos.length) {
+            return { msg: this.tx('noPhoto', 'Please upload a photo to continue.'), target: this.ui.drop };
+          }
+          return null;
+        }
+        case 'extras': {
+          const missing = this.selectedExtras().find((x) => x.input && !this.extraText(x));
+          if (!missing) return null;
+          return { msg: missing.error || this.tx('extrasText', 'Please fill in the text.'), target: missing.input, focus: true };
+        }
+        case 'approve':
+          if (this.state.render !== null) return null;
+          return { msg: this.tx('approve', 'Please choose an option.'), target: step.querySelector('.bw-approve') };
+        default:
+          return null;
+      }
+    }
+
+    next() {
+      const step = this.current;
+      if (step.dataset.bwStep === 'review') return this.checkout();
+      const problem = this.validate(step);
+      if (problem) return this.flagError(problem);
+      this.go(this.index + 1, { focus: true });
+    }
+
+    go(i, { initial = false, focus = false } = {}) {
+      if (i < 0 || i >= this.steps.length) return;
+      this.index = i;
+      this.steps.forEach((s, n) => { s.hidden = n !== i; });
+      if (this.current.dataset.bwStep === 'review') this.renderReview();
+      this.clearError();
+      this.refresh();
+      if (initial) return;
+
+      const offset = toInt(getComputedStyle(this).getPropertyValue('--bw-sticky-top')) + 20;
+      const top = this.getBoundingClientRect().top + window.scrollY - offset;
+      if (window.scrollY > top) window.scrollTo({ top, behavior: 'smooth' });
+      if (focus) {
+        const heading = this.current.querySelector('.bw-h');
+        if (heading) heading.focus({ preventScroll: true });
+      }
+    }
+
+    refresh() {
+      const step = this.current;
+      const isReview = step.dataset.bwStep === 'review';
+      const { next, back, stepper, stepText, progress } = this.ui;
+
+      if (!this.busy) next.textContent = isReview ? this.tx('checkout', 'Checkout') : this.tx('continue', 'Continue');
+      back.hidden = this.index === 0;
+
+      Array.from(stepper.children).forEach((li, n) => {
+        li.classList.toggle('is-done', n < this.index);
+        li.classList.toggle('is-current', n === this.index);
+        li.firstChild.textContent = n < this.index ? '✓' : String(n + 1);
+        if (n === this.index) li.setAttribute('aria-current', 'step');
+        else li.removeAttribute('aria-current');
+      });
+
+      stepText.textContent =
+        fill(this.tx('stepText', 'Step [n] of [total]'), { n: this.index + 1, total: this.steps.length }) +
+        (step.dataset.label ? ' · ' + step.dataset.label : '');
+      progress.style.width = ((this.index + 1) / this.steps.length) * 100 + '%';
+
+      this.updateTotal();
+    }
+
+    flagError({ msg, target, focus }) {
+      this.clearError();
+      this.ui.alert.textContent = msg || '';
+      if (!target) return;
+      void target.offsetWidth; // restart the shake animation
+      target.classList.add('bw-invalid');
+      if (focus) target.focus({ preventScroll: true });
+      // Leave room for the fixed bottom bar + alert on phones.
+      const r = target.getBoundingClientRect();
+      if (r.top < 80 || r.bottom > window.innerHeight - 170) target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    clearError() {
+      this.ui.alert.textContent = '';
+      this.querySelectorAll('.bw-invalid').forEach((n) => n.classList.remove('bw-invalid'));
+    }
+
+    /* ----- review ----- */
+
+    renderReview() {
+      const rows = [];
+      this.chosenGroups().forEach((g) => rows.push({ title: g.title, price: g.price }));
+      if (this.state.photos.length) {
+        rows.push({
+          title: this.tx('photosTitle', 'Your photos'),
+          sub: fill(this.tx('photos', '[count] photo(s)'), { count: this.state.photos.length }),
+          photos: this.state.photos,
+        });
+      }
+      this.selectedExtras().forEach((x) => {
+        const text = this.extraText(x);
+        rows.push({ title: x.title, price: x.price, sub: text ? x.property + ': ' + text : '' });
+      });
+      const render = this.renderInfo();
+      if (this.state.render && render) rows.push({ title: render.title, price: render.price, sub: render.sub });
+
+      this.ui.review.replaceChildren(
+        ...rows.map((row) => {
+          const line = el('div', 'bw-row');
+          const main = el('div', 'bw-row__main');
+          main.append(el('div', 'bw-row__title', row.title));
+          if (row.sub) main.append(el('div', 'bw-row__sub', row.sub));
+          if (row.photos && row.photos.length) {
+            const thumbs = el('div', 'bw-row__thumbs');
+            row.photos.forEach((p) => thumbs.append(this.photoPreview(p, 'bw-row__thumb')));
+            main.append(thumbs);
+          }
+          line.append(main, el('div', 'bw-row__price', row.price == null ? '' : this.money(row.price)));
+          return line;
+        })
+      );
+      this.ui.reviewTotal.textContent = this.money(rows.reduce((sum, r) => sum + (r.price || 0), 0));
+    }
+
+    /* ----- cart ----- */
+
+    async addToCart(body, isJson) {
+      const res = await fetch(ROOT + 'cart/add.js', {
+        method: 'POST',
+        headers: isJson ? { 'Content-Type': 'application/json', Accept: 'application/json' } : { Accept: 'application/json' },
+        body: isJson ? JSON.stringify(body) : body,
+      });
+      if (!res.ok) throw new Error(await errorText(res));
+    }
+
+    /** Remove anything this attempt already put in the cart, so a failed checkout never leaves half a set behind. */
+    async rollback(setId) {
+      try {
+        const cart = await (await fetch(ROOT + 'cart.js', { headers: { Accept: 'application/json' } })).json();
+        const updates = {};
+        cart.items.forEach((item) => {
+          if (item.properties && item.properties._set_id === setId) updates[item.key] = 0;
+        });
+        if (Object.keys(updates).length) {
+          await fetch(ROOT + 'cart/update.js', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ updates }),
+          });
+        }
+      } catch (e) {
+        /* best effort */
+      }
+    }
+
+    async checkout() {
+      if (this.busy) return;
+      this.busy = true;
+      const btn = this.ui.next;
+      const label = btn.textContent;
+      btn.classList.add('is-loading');
+      btn.disabled = true;
+      btn.textContent = '…';
+      this.clearError();
+
+      const setId = 'BW-' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 6).toUpperCase();
+
+      try {
+        const [first, ...others] = this.chosenGroups();
+        const { photos } = this.state;
+
+        // 1) First figure set carries the photos (file uploads need a form request).
+        if (first) {
+          const form = new FormData();
+          form.append('id', first.variantId);
+          form.append('quantity', '1');
+          photos.forEach((p, n) => {
+            const key = photos.length > 1 ? 'Photo ' + (n + 1) : 'Photo';
+            form.append('properties[' + key + ']', p.file, p.file.name);
+          });
+          form.append('properties[_set_id]', setId);
+          await this.addToCart(form, false);
+        }
+
+        // 2) Other figure sets + extras + rendering approval in one request.
+        const items = others.map((g) => ({ id: Number(g.variantId), quantity: 1, properties: { _set_id: setId } }));
+        this.selectedExtras().forEach((x) => {
+          const properties = { _set_id: setId };
+          const text = this.extraText(x);
+          if (x.input && text) properties[x.property] = text;
+          items.push({ id: Number(x.variantId), quantity: 1, properties });
+        });
+        const render = this.renderInfo();
+        if (this.state.render && render) {
+          items.push({ id: Number(render.variantId), quantity: 1, properties: { _set_id: setId } });
+        }
+        if (items.length) await this.addToCart({ items }, true);
+
+        window.location.href = ROOT + (this.cfg.redirect === 'cart' ? 'cart' : 'checkout');
+      } catch (err) {
+        await this.rollback(setId);
+        this.flagError({ msg: err.message || this.tx('cartError', 'Something went wrong. Please try again.') });
+        this.busy = false;
+        btn.classList.remove('is-loading');
+        btn.disabled = false;
+        btn.textContent = label;
+      }
+    }
+
+    /* ----- theme editor ----- */
+
+    /** Show the step that contains the block selected in the theme editor. */
+    showBlock(target) {
+      const step = target.closest('[data-bw-step]');
+      const i = this.steps.indexOf(step);
+      if (i > -1 && i !== this.index) this.go(i);
+    }
+  }
+
+  customElements.define('brickset-wizard', BricksetWizard);
+
+  document.addEventListener('shopify:block:select', (e) => {
+    const wizard = e.target.closest && e.target.closest('brickset-wizard');
+    if (wizard && wizard.showBlock) wizard.showBlock(e.target);
+  });
+})();
+{% endraw %}
+</script>
+
+{% schema %}
+{
+  "name": "Wizard",
+  "tag": "section",
+  "class": "section-brickset-wizard",
+  "max_blocks": 20,
+  "settings": [
+    { "type": "header", "content": "Look" },
+    { "type": "color", "id": "accent", "label": "Accent color", "default": "#C8102E", "info": "Selected cards, prices, alerts" },
+    { "type": "color", "id": "ink", "label": "Button color", "default": "#111111", "info": "Continue button and step circles. Text uses your theme's color." },
+    { "type": "color", "id": "card_bg", "label": "Card background", "default": "#FFFFFF" },
+    { "type": "range", "id": "padding", "label": "Vertical padding", "min": 0, "max": 100, "step": 4, "unit": "px", "default": 40 },
+
+    { "type": "header", "content": "Step 1: who's in the set" },
+    { "type": "paragraph", "content": "Add one \"Count group\" block for pets and one for people. Both show on this step, with one photo upload below." },
+    { "type": "text", "id": "figures_label", "label": "Step label", "default": "Your set" },
+    { "type": "text", "id": "figures_heading", "label": "Heading", "default": "Who's in your set?" },
+    { "type": "text", "id": "figures_sub", "label": "Subheading", "default": "Pick how many pets and people, then add your photos." },
+    { "type": "text", "id": "price_prefix", "label": "Price prefix", "info": "e.g. \"from\". Leave empty to show just the price." },
+    { "type": "text", "id": "sold_out_label", "label": "Unavailable label", "default": "Sold out" },
+
+    { "type": "header", "content": "Step 1: photo upload" },
+    { "type": "text", "id": "upload_heading", "label": "Upload heading", "default": "Add your photos" },
+    { "type": "text", "id": "upload_title", "label": "Upload title", "default": "Photos of everyone in the set" },
+    { "type": "text", "id": "upload_button", "label": "Upload button", "default": "Choose photos" },
+    { "type": "text", "id": "upload_more_label", "label": "Add more button", "default": "Add more photos" },
+    { "type": "text", "id": "upload_hint", "label": "Upload hint", "default": "or drag them here", "info": "Hidden on phones" },
+    { "type": "textarea", "id": "upload_note", "label": "Upload note", "default": "Clear, well-lit photos from a few angles help us get every detail right." },
+    { "type": "range", "id": "max_photo_mb", "label": "Max size per photo", "min": 1, "max": 20, "step": 1, "unit": "MB", "default": 10, "info": "Big phone photos are shrunk in the browser first, so most will fit." },
+    { "type": "range", "id": "max_files", "label": "Max photos", "min": 1, "max": 10, "step": 1, "default": 5 },
+    { "type": "text", "id": "limits_label", "label": "Limits text", "default": "Up to [count] photos, max [size] MB each", "info": "[count] and [size] are filled in automatically" },
+    { "type": "text", "id": "preparing_label", "label": "While photos are processed", "default": "Preparing photos…" },
+    { "type": "text", "id": "photos_title", "label": "Photos row on review", "default": "Your photos" },
+    { "type": "text", "id": "photos_label", "label": "Photo count on review", "default": "[count] photo(s)" },
+    { "type": "text", "id": "remove_label", "label": "Remove photo (screen readers)", "default": "Remove" },
+
+    { "type": "header", "content": "Checkout" },
+    {
+      "type": "select",
+      "id": "redirect",
+      "label": "After the last step, send customers to",
+      "options": [
+        { "value": "checkout", "label": "Checkout" },
+        { "value": "cart", "label": "Cart" }
+      ],
+      "default": "checkout"
+    },
+
+    { "type": "header", "content": "Navigation" },
+    { "type": "text", "id": "continue_label", "label": "Continue button", "default": "Continue" },
+    { "type": "text", "id": "back_label", "label": "Back link", "default": "Back" },
+    { "type": "text", "id": "total_label", "label": "Total label", "default": "Total" },
+    { "type": "text", "id": "step_text", "label": "Phone: step text", "default": "Step [n] of [total]" },
+    { "type": "range", "id": "sticky_offset", "label": "Phone: top bar offset", "min": 0, "max": 120, "step": 2, "unit": "px", "default": 0, "info": "If your header stays pinned on phones, set its height here so the step/total bar sits below it." },
+
+    { "type": "header", "content": "Error messages" },
+    { "type": "text", "id": "msg_no_figures", "label": "\"None\" chosen everywhere", "default": "Please choose at least one pet or person." },
+    { "type": "text", "id": "error_photo", "label": "No photo", "default": "Please upload a photo to continue." },
+    { "type": "text", "id": "error_too_big", "label": "Photo too large", "default": "“[file]” is larger than [size] MB." },
+    { "type": "text", "id": "error_too_many", "label": "Too many photos", "default": "You can upload up to [count] photos." },
+    { "type": "text", "id": "error_not_image", "label": "Not an image", "default": "“[file]” is not an image." },
+    { "type": "text", "id": "error_extras_text", "label": "Extra text missing (fallback)", "default": "Please fill in the text for your selected extras.", "info": "Used when an extra has no own message" },
+    { "type": "text", "id": "error_approve", "label": "Render option not chosen", "default": "Please choose whether you want to see a rendering first." },
+    { "type": "text", "id": "error_cart", "label": "Could not add to cart", "default": "Something went wrong. Please try again." },
+
+    { "type": "header", "content": "Extras step" },
+    { "type": "paragraph", "content": "Add extras as \"Extra product\" blocks. The step is hidden when there are none." },
+    { "type": "text", "id": "extras_label", "label": "Step label", "default": "Extras" },
+    { "type": "text", "id": "extras_heading", "label": "Heading", "default": "Anything to add?" },
+    { "type": "text", "id": "extras_note_badge", "label": "Note badge", "default": "Included" },
+    { "type": "text", "id": "extras_note", "label": "Note", "default": "Glasses are matched from your photo — free." },
+
+    { "type": "header", "content": "Approve step" },
+    { "type": "paragraph", "content": "Pick the paid \"Rendering approval\" product. Leave empty to hide this step." },
+    { "type": "product", "id": "render_product", "label": "Rendering product" },
+    { "type": "text", "id": "approve_label", "label": "Step label", "default": "Approve" },
+    { "type": "text", "id": "approve_heading", "label": "Heading", "default": "Confirm your rendering before production?" },
+    { "type": "textarea", "id": "approve_text", "label": "Text", "default": "Once a set goes into production it can't be changed, so this is your chance to check it first." },
+    { "type": "image_picker", "id": "yes_image", "label": "\"Yes\" image" },
+    { "type": "text", "id": "yes_title", "label": "\"Yes\" title", "default": "Yes, show me first" },
+    { "type": "textarea", "id": "yes_text", "label": "\"Yes\" text", "default": "We send you a rendering of your set and only start production once you approve it. Includes one round of changes." },
+    { "type": "text", "id": "yes_review_sub", "label": "\"Yes\" note on review", "default": "Includes one round of changes" },
+    { "type": "text", "id": "no_title", "label": "\"No\" title", "default": "No, go ahead" },
+    { "type": "textarea", "id": "no_text", "label": "\"No\" text", "default": "We build it straight from your photo. No rendering to review beforehand." },
+    { "type": "text", "id": "no_price_label", "label": "\"No\" price label", "default": "Free" },
+
+    { "type": "header", "content": "Review step" },
+    { "type": "text", "id": "review_label", "label": "Step label", "default": "Review" },
+    { "type": "text", "id": "review_heading", "label": "Heading", "default": "Review your order" },
+    { "type": "text", "id": "checkout_label", "label": "Checkout button", "default": "Continue to checkout" }
+  ],
+  "blocks": [
+    {
+      "type": "figure",
+      "name": "Count group",
+      "settings": [
+        { "type": "paragraph", "content": "Shown on step 1. Each variant of the product becomes an option card." },
+        { "type": "product", "id": "product", "label": "Product" },
+        { "type": "text", "id": "heading", "label": "Question", "default": "How many people?" },
+        { "type": "text", "id": "subheading", "label": "Subheading", "default": "One figure for each person." },
+        { "type": "checkbox", "id": "list_layout", "label": "Show options as a list", "default": false, "info": "Off: grid, 3 cards per row. On: one under another." },
+        {
+          "type": "textarea",
+          "id": "card_lines",
+          "label": "Card texts",
+          "info": "One line per variant: value | icon | name | description. Example: 1 | 🐾 | 1 Pet | Just your pet. Built by you."
+        },
+        { "type": "header", "content": "Rules & messages" },
+        { "type": "checkbox", "id": "allow_skip", "label": "Allow choosing none", "default": false, "info": "Adds a button like \"No pets\" under the cards." },
+        { "type": "text", "id": "skip_label", "label": "\"None\" button text", "default": "None" },
+        { "type": "text", "id": "error_select", "label": "Error: nothing selected", "default": "Please choose how many to continue." }
+      ]
+    },
+    {
+      "type": "extra",
+      "name": "Extra product",
+      "settings": [
+        { "type": "product", "id": "product", "label": "Product" },
+        { "type": "image_picker", "id": "image", "label": "Image", "info": "Optional. Overrides the product image." },
+        { "type": "text", "id": "badge", "label": "Badge", "info": "e.g. Bestseller" },
+        { "type": "text", "id": "description", "label": "Short description" },
+        { "type": "header", "content": "Customer text" },
+        { "type": "checkbox", "id": "needs_text", "label": "Ask the customer for text", "default": false },
+        { "type": "text", "id": "text_property", "label": "Field name (shown on order)", "default": "Text on base" },
+        { "type": "text", "id": "text_placeholder", "label": "Placeholder", "default": "A name, a date, a few words" },
+        { "type": "number", "id": "text_max", "label": "Max characters", "default": 40 },
+        { "type": "text", "id": "text_error", "label": "Error when empty", "default": "Please enter the text to continue." }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Wizard",
+      "blocks": [
+        {
+          "type": "figure",
+          "settings": {
+            "heading": "How many pets?",
+            "subheading": "One figure for each pet.",
+            "card_lines": "1 | 🐾 | 1 Pet | Just your pet. Built by you.\n2 | 🐶 | 2 Pets | Two best friends, side by side.\n3 | 🐕 | 3 Pets | The whole pack together.",
+            "skip_label": "No pets",
+            "error_select": "Please choose how many pets."
+          }
+        },
+        {
+          "type": "figure",
+          "settings": {
+            "heading": "How many people?",
+            "subheading": "One figure for each person.",
+            "card_lines": "1 | 🧍 | 1 Person | Just you, in brick form.\n2 | 👫 | 2 People | Perfect for couples and best friends.\n3 | 👨‍👩‍👦 | 3 People | A small family set.\n4 | 👨‍👩‍👧‍👦 | 4 People | The whole family.\n5 | 🧑‍🤝‍🧑 | 5 People | Family and friends.\n6 | 🎉 | 6 People | The full crew.",
+            "skip_label": "No people",
+            "error_select": "Please choose how many people."
+          }
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}
