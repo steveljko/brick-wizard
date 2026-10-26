@@ -1,0 +1,131 @@
+{%- comment -%}
+  Count group for the Wizard block: each variant of the product becomes an option card on step 1.
+{%- endcomment -%}
+
+{%- if block.settings.product == blank -%}
+  {%- if request.design_mode -%}
+    <p class="bw-placeholder" {{ block.shopify_attributes }}>Count group: choose a product in the block settings.</p>
+  {%- endif -%}
+{%- else -%}
+  {%- liquid
+    assign p = block.settings.product
+    assign lines = block.settings.card_lines | newline_to_br | split: '<br />'
+    assign group = 'bw-' | append: block.id
+    assign layout = 'grid'
+    if block.settings.list_layout
+      assign layout = 'list'
+    endif
+  -%}
+
+  <div class="bw-group" data-bw-group data-block-id="{{ block.id }}" data-err-select="{{ block.settings.error_select | escape }}" {{ block.shopify_attributes }}>
+    <h3 class="bw-group__h" id="{{ group }}-h">{{ block.settings.heading }}</h3>
+    {%- if block.settings.subheading != blank -%}<p class="bw-group__sub">{{ block.settings.subheading }}</p>{%- endif -%}
+
+    <div class="bw-opts bw-opts--{{ layout }}" role="radiogroup" aria-labelledby="{{ group }}-h" data-bw-options>
+      {%- for variant in p.variants -%}
+        {%- liquid
+          assign vi = forloop.index0
+          assign opt_icon = ''
+          assign opt_name = ''
+          assign opt_desc = ''
+          assign matched = false
+
+          for line in lines
+            assign parts = line | strip | split: '|'
+            if parts.size > 3
+              assign key = parts[0] | strip
+              if key == variant.option1
+                assign opt_icon = parts[1] | strip
+                assign opt_name = parts[2] | strip
+                assign opt_desc = parts[3] | strip
+                assign matched = true
+                break
+              endif
+            endif
+          endfor
+
+          unless matched
+            assign parts = lines[vi] | strip | split: '|'
+            if parts.size < 4
+              assign opt_icon = parts[0] | strip
+              assign opt_name = parts[1] | strip
+              assign opt_desc = parts[2] | strip
+            endif
+          endunless
+
+          if opt_name == blank
+            assign opt_name = variant.title
+          endif
+
+          assign item_title = p.title
+          unless variant.title == 'Default Title'
+            assign item_title = item_title | append: ' · ' | append: opt_name
+          endunless
+        -%}
+
+        <label class="bw-opt{% unless variant.available %} is-disabled{% endunless %}">
+          <input
+            type="radio"
+            class="bw-vh"
+            name="{{ group }}"
+            value="{{ variant.id }}"
+            data-bw-option
+            data-price="{{ variant.price }}"
+            data-title="{{ item_title | escape }}"
+            {% unless variant.available %}disabled{% endunless %}
+          >
+          <span class="bw-opt__radio" aria-hidden="true"></span>
+          {%- if opt_icon != blank -%}<span class="bw-opt__icon" aria-hidden="true">{{ opt_icon }}</span>{%- endif -%}
+          <span class="bw-opt__body">
+            <span class="bw-opt__name">{{ opt_name }}</span>
+            {%- if opt_desc != blank -%}<span class="bw-opt__desc">{{ opt_desc }}</span>{%- endif -%}
+          </span>
+          <span class="bw-opt__price">
+            {%- if variant.available -%}
+              <span class="bw-opt__now">
+                {%- if block.settings.price_prefix != blank -%}<small>{{ block.settings.price_prefix }}</small> {% endif -%}
+                {{- variant.price | money -}}
+              </span>
+              {%- if variant.compare_at_price > variant.price -%}
+                <s class="bw-opt__was">{{ variant.compare_at_price | money }}</s>
+              {%- endif -%}
+            {%- else -%}
+              <span class="bw-opt__soldout">{{ block.settings.sold_out_label }}</span>
+            {%- endif -%}
+          </span>
+        </label>
+      {%- endfor -%}
+    </div>
+
+    {%- if block.settings.allow_skip -%}
+      <button type="button" class="bw-none" data-bw-none aria-pressed="false">{{ block.settings.skip_label }}</button>
+    {%- endif -%}
+  </div>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Count group",
+  "tag": null,
+  "settings": [
+    { "type": "paragraph", "content": "Shown on step 1. Each variant of the product becomes an option card." },
+    { "type": "product", "id": "product", "label": "Product" },
+    { "type": "text", "id": "heading", "label": "Question", "default": "How many people?" },
+    { "type": "text", "id": "subheading", "label": "Subheading", "default": "One figure for each person." },
+    { "type": "checkbox", "id": "list_layout", "label": "Show options as a list", "default": false, "info": "Off: grid, 3 cards per row. On: one under another." },
+    {
+      "type": "textarea",
+      "id": "card_lines",
+      "label": "Card texts",
+      "info": "One line per variant: value | icon | name | description. Example: 1 | 🐾 | 1 Pet | Just your pet. Built by you."
+    },
+    { "type": "text", "id": "price_prefix", "label": "Price prefix", "info": "e.g. \"from\". Leave empty to show just the price." },
+    { "type": "text", "id": "sold_out_label", "label": "Unavailable label", "default": "Sold out" },
+    { "type": "header", "content": "Rules & messages" },
+    { "type": "checkbox", "id": "allow_skip", "label": "Allow choosing none", "default": false, "info": "Adds a button like \"No pets\" under the cards." },
+    { "type": "text", "id": "skip_label", "label": "\"None\" button text", "default": "None" },
+    { "type": "text", "id": "error_select", "label": "Error: nothing selected", "default": "Please choose how many to continue." }
+  ],
+  "presets": [{ "name": "Count group" }]
+}
+{% endschema %}

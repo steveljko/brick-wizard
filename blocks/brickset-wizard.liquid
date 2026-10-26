@@ -1,23 +1,16 @@
 {%- comment -%}
-  Wizard — multi-step "build & buy" flow in ONE section file.
-  Step 1: how many pets + how many people (one "Count group" block each) + one photo upload
-  Then:   Extras → Approve (paid rendering) → Review → cart/checkout.
+  Wizard — multi-step "build & buy" flow as a theme block (add it to any section that accepts @theme blocks).
+  Step 1: how many pets + how many people (one "Count group" child block each)
+  Step 2: photo upload
+  Then:   Extras ("Extra product" child blocks) → Approve (paid rendering) → Review → cart/checkout.
   Every price comes from real products/variants, so cart and checkout totals are always correct.
+
+  Child blocks all render inside step 1 (a block can't read its children's settings);
+  the script moves extras to their own step and drops steps that end up empty.
 {%- endcomment -%}
 
 {%- liquid
-  assign s = section.settings
-
-  assign has_groups = false
-  assign has_extras = false
-  for block in section.blocks
-    if block.type == 'figure' and block.settings.product != blank
-      assign has_groups = true
-    endif
-    if block.type == 'extra' and block.settings.product != blank
-      assign has_extras = true
-    endif
-  endfor
+  assign s = block.settings
 
   assign render_product = s.render_product
   assign render_variant = render_product.selected_or_first_available_variant
@@ -30,6 +23,7 @@
 <brickset-wizard
   class="bw"
   style="--bw-pad: {{ s.padding }}px; --bw-accent: {{ s.accent }}; --bw-ink: {{ s.ink }}; --bw-card: {{ s.card_bg }}; --bw-sticky-top: {{ s.sticky_offset }}px;"
+  {{ block.shopify_attributes }}
 >
   <script type="application/json" data-bw-config>
     {
@@ -71,200 +65,46 @@
     </div>
   </div>
 
-  {%- comment -%} ───────── Step 1: pets + people + photos ───────── {%- endcomment -%}
-  <section class="bw-step" data-bw-step="figures" data-label="{{ s.figures_label | escape }}" aria-labelledby="bw-{{ section.id }}-figures" hidden>
-    <h2 class="bw-h" id="bw-{{ section.id }}-figures" tabindex="-1">{{ s.figures_heading }}</h2>
+  {%- comment -%} ───────── Step 1: pets + people ───────── {%- endcomment -%}
+  <section class="bw-step" data-bw-step="figures" data-label="{{ s.figures_label | escape }}" aria-labelledby="bw-{{ block.id }}-figures" hidden>
+    <h2 class="bw-h" id="bw-{{ block.id }}-figures" tabindex="-1">{{ s.figures_heading }}</h2>
     {%- if s.figures_sub != blank -%}<p class="bw-sub">{{ s.figures_sub }}</p>{%- endif -%}
 
-    {%- for block in section.blocks -%}
-      {%- if block.type != 'figure' -%}{%- continue -%}{%- endif -%}
+    {% content_for 'blocks' %}
+  </section>
 
-      {%- if block.settings.product == blank -%}
-        {%- if request.design_mode -%}
-          <p class="bw-placeholder" {{ block.shopify_attributes }}>Count group: choose a product in the block settings.</p>
-        {%- endif -%}
-        {%- continue -%}
-      {%- endif -%}
-
-      {%- liquid
-        assign p = block.settings.product
-        assign lines = block.settings.card_lines | newline_to_br | split: '<br />'
-        assign group = 'bw-' | append: block.id
-        assign layout = 'grid'
-        if block.settings.list_layout
-          assign layout = 'list'
-        endif
-      -%}
-
-      <div class="bw-group" data-bw-group data-block-id="{{ block.id }}" data-err-select="{{ block.settings.error_select | escape }}" {{ block.shopify_attributes }}>
-        <h3 class="bw-group__h" id="{{ group }}-h">{{ block.settings.heading }}</h3>
-        {%- if block.settings.subheading != blank -%}<p class="bw-group__sub">{{ block.settings.subheading }}</p>{%- endif -%}
-
-        <div class="bw-opts bw-opts--{{ layout }}" role="radiogroup" aria-labelledby="{{ group }}-h" data-bw-options>
-          {%- for variant in p.variants -%}
-            {%- liquid
-              assign vi = forloop.index0
-              assign opt_icon = ''
-              assign opt_name = ''
-              assign opt_desc = ''
-              assign matched = false
-
-              for line in lines
-                assign parts = line | strip | split: '|'
-                if parts.size > 3
-                  assign key = parts[0] | strip
-                  if key == variant.option1
-                    assign opt_icon = parts[1] | strip
-                    assign opt_name = parts[2] | strip
-                    assign opt_desc = parts[3] | strip
-                    assign matched = true
-                    break
-                  endif
-                endif
-              endfor
-
-              unless matched
-                assign parts = lines[vi] | strip | split: '|'
-                if parts.size < 4
-                  assign opt_icon = parts[0] | strip
-                  assign opt_name = parts[1] | strip
-                  assign opt_desc = parts[2] | strip
-                endif
-              endunless
-
-              if opt_name == blank
-                assign opt_name = variant.title
-              endif
-
-              assign item_title = p.title
-              unless variant.title == 'Default Title'
-                assign item_title = item_title | append: ' · ' | append: opt_name
-              endunless
-            -%}
-
-            <label class="bw-opt{% unless variant.available %} is-disabled{% endunless %}">
-              <input
-                type="radio"
-                class="bw-vh"
-                name="{{ group }}"
-                value="{{ variant.id }}"
-                data-bw-option
-                data-price="{{ variant.price }}"
-                data-title="{{ item_title | escape }}"
-                {% unless variant.available %}disabled{% endunless %}
-              >
-              <span class="bw-opt__radio" aria-hidden="true"></span>
-              {%- if opt_icon != blank -%}<span class="bw-opt__icon" aria-hidden="true">{{ opt_icon }}</span>{%- endif -%}
-              <span class="bw-opt__body">
-                <span class="bw-opt__name">{{ opt_name }}</span>
-                {%- if opt_desc != blank -%}<span class="bw-opt__desc">{{ opt_desc }}</span>{%- endif -%}
-              </span>
-              <span class="bw-opt__price">
-                {%- if variant.available -%}
-                  <span class="bw-opt__now">
-                    {%- if s.price_prefix != blank -%}<small>{{ s.price_prefix }}</small> {% endif -%}
-                    {{- variant.price | money -}}
-                  </span>
-                  {%- if variant.compare_at_price > variant.price -%}
-                    <s class="bw-opt__was">{{ variant.compare_at_price | money }}</s>
-                  {%- endif -%}
-                {%- else -%}
-                  <span class="bw-opt__soldout">{{ s.sold_out_label }}</span>
-                {%- endif -%}
-              </span>
-            </label>
-          {%- endfor -%}
-        </div>
-
-        {%- if block.settings.allow_skip -%}
-          <button type="button" class="bw-none" data-bw-none aria-pressed="false">{{ block.settings.skip_label }}</button>
-        {%- endif -%}
-      </div>
-    {%- endfor -%}
-
-    {%- if has_groups -%}
-      <div class="bw-upload">
-        {%- if s.upload_heading != blank -%}<h3 class="bw-upload__h">{{ s.upload_heading }}</h3>{%- endif -%}
-        <label class="bw-drop" data-bw-drop>
-          <input type="file" class="bw-vh" accept="image/*,.heic,.heif" multiple data-bw-file>
-          <span class="bw-drop__title">{{ s.upload_title }}</span>
-          <span class="bw-btn bw-btn--outline">
-            <span data-bw-btn-first>{{ s.upload_button }}</span>
-            <span data-bw-btn-more hidden>{{ s.upload_more_label }}</span>
-          </span>
-          <span class="bw-drop__hint" data-bw-hint>{{ s.upload_hint }}</span>
-          <span class="bw-drop__limits">{{ limits_text }}</span>
-        </label>
-        <div class="bw-thumbs" data-bw-thumbs></div>
-        <p class="bw-error" data-bw-file-error role="alert"></p>
-        {%- if s.upload_note != blank -%}<p class="bw-note">{{ s.upload_note }}</p>{%- endif -%}
-      </div>
-    {%- endif -%}
+  {%- comment -%} ───────── Step 2: photos ───────── {%- endcomment -%}
+  <section class="bw-step" data-bw-step="photos" data-label="{{ s.upload_label | escape }}" aria-labelledby="bw-{{ block.id }}-photos" hidden>
+    <h2 class="bw-h" id="bw-{{ block.id }}-photos" tabindex="-1">{{ s.upload_heading }}</h2>
+    {%- if s.upload_sub != blank -%}<p class="bw-sub">{{ s.upload_sub }}</p>{%- endif -%}
+    <div class="bw-upload">
+      <label class="bw-drop" data-bw-drop>
+        <input type="file" class="bw-vh" accept="image/*,.heic,.heif" multiple data-bw-file>
+        <span class="bw-drop__title">{{ s.upload_title }}</span>
+        <span class="bw-btn bw-btn--outline">
+          <span data-bw-btn-first>{{ s.upload_button }}</span>
+          <span data-bw-btn-more hidden>{{ s.upload_more_label }}</span>
+        </span>
+        <span class="bw-drop__hint" data-bw-hint>{{ s.upload_hint }}</span>
+        <span class="bw-drop__limits">{{ limits_text }}</span>
+      </label>
+      <div class="bw-thumbs" data-bw-thumbs></div>
+      <p class="bw-error" data-bw-file-error role="alert"></p>
+      {%- if s.upload_note != blank -%}<p class="bw-note">{{ s.upload_note }}</p>{%- endif -%}
+    </div>
   </section>
 
   {%- comment -%} ───────── Extras ───────── {%- endcomment -%}
-  {%- if has_extras -%}
-    <section class="bw-step" data-bw-step="extras" data-label="{{ s.extras_label | escape }}" aria-labelledby="bw-{{ section.id }}-extras" hidden>
-      <h2 class="bw-h" id="bw-{{ section.id }}-extras" tabindex="-1">{{ s.extras_heading }}</h2>
-      {%- if s.extras_note != blank -%}
-        <p class="bw-pill">
-          {%- if s.extras_note_badge != blank -%}<span class="bw-badge">{{ s.extras_note_badge }}</span>{%- endif -%}
-          {{ s.extras_note }}
-        </p>
-      {%- endif -%}
-      <div class="bw-extras">
-        {%- for block in section.blocks -%}
-          {%- if block.type == 'extra' and block.settings.product != blank -%}
-            {%- liquid
-              assign p = block.settings.product
-              assign v = p.selected_or_first_available_variant
-              assign img = block.settings.image | default: p.featured_image
-            -%}
-            <div
-              class="bw-extra{% unless v.available %} is-disabled{% endunless %}"
-              data-bw-extra
-              data-key="{{ block.id }}"
-              data-variant-id="{{ v.id }}"
-              data-price="{{ v.price }}"
-              data-title="{{ p.title | escape }}"
-              {{ block.shopify_attributes }}
-            >
-              <label class="bw-extra__label">
-                <input type="checkbox" class="bw-vh" data-bw-extra-check {% unless v.available %}disabled{% endunless %}>
-                {%- if block.settings.badge != blank -%}<span class="bw-badge bw-badge--float">{{ block.settings.badge }}</span>{%- endif -%}
-                <span class="bw-extra__media">
-                  {%- if img != blank -%}
-                    {{ img | image_url: width: 600 | image_tag: loading: 'lazy', sizes: '(min-width: 750px) 240px, 50vw', alt: p.title }}
-                  {%- endif -%}
-                  <span class="bw-extra__check" aria-hidden="true">✓</span>
-                </span>
-                <span class="bw-extra__title">{{ p.title }}</span>
-                {%- if block.settings.description != blank -%}<span class="bw-extra__desc">{{ block.settings.description }}</span>{%- endif -%}
-                <span class="bw-extra__price">
-                  {%- if v.available -%}{{ v.price | money }}{%- else -%}{{ s.sold_out_label }}{%- endif -%}
-                </span>
-              </label>
-              {%- if block.settings.needs_text -%}
-                <div class="bw-extra__text" data-bw-extra-text hidden>
-                  <input
-                    type="text"
-                    class="bw-input"
-                    maxlength="{{ block.settings.text_max }}"
-                    placeholder="{{ block.settings.text_placeholder | escape }}"
-                    aria-label="{{ block.settings.text_property | escape }}"
-                    enterkeyhint="next"
-                    autocomplete="off"
-                    data-property="{{ block.settings.text_property | escape }}"
-                    data-error="{{ block.settings.text_error | escape }}"
-                  >
-                </div>
-              {%- endif -%}
-            </div>
-          {%- endif -%}
-        {%- endfor -%}
-      </div>
-    </section>
-  {%- endif -%}
+  <section class="bw-step" data-bw-step="extras" data-label="{{ s.extras_label | escape }}" aria-labelledby="bw-{{ block.id }}-extras" hidden>
+    <h2 class="bw-h" id="bw-{{ block.id }}-extras" tabindex="-1">{{ s.extras_heading }}</h2>
+    {%- if s.extras_note != blank -%}
+      <p class="bw-pill">
+        {%- if s.extras_note_badge != blank -%}<span class="bw-badge">{{ s.extras_note_badge }}</span>{%- endif -%}
+        {{ s.extras_note }}
+      </p>
+    {%- endif -%}
+    <div class="bw-extras" data-bw-extras></div>
+  </section>
 
   {%- comment -%} ───────── Approve (paid rendering) ───────── {%- endcomment -%}
   {%- if render_product != blank -%}
@@ -276,14 +116,14 @@
       data-render-price="{{ render_variant.price }}"
       data-render-title="{{ render_product.title | escape }}"
       data-render-sub="{{ s.yes_review_sub | escape }}"
-      aria-labelledby="bw-{{ section.id }}-approve"
+      aria-labelledby="bw-{{ block.id }}-approve"
       hidden
     >
-      <h2 class="bw-h" id="bw-{{ section.id }}-approve" tabindex="-1">{{ s.approve_heading }}</h2>
+      <h2 class="bw-h" id="bw-{{ block.id }}-approve" tabindex="-1">{{ s.approve_heading }}</h2>
       {%- if s.approve_text != blank -%}<p class="bw-sub bw-sub--narrow">{{ s.approve_text }}</p>{%- endif -%}
-      <div class="bw-approve" role="radiogroup" aria-labelledby="bw-{{ section.id }}-approve">
+      <div class="bw-approve" role="radiogroup" aria-labelledby="bw-{{ block.id }}-approve">
         <label class="bw-choice" data-bw-choice>
-          <input type="radio" class="bw-vh" name="bw-render-{{ section.id }}" value="yes">
+          <input type="radio" class="bw-vh" name="bw-render-{{ block.id }}" value="yes">
           {%- if s.yes_image != blank -%}
             {{ s.yes_image | image_url: width: 600 | image_tag: loading: 'lazy', class: 'bw-choice__img', alt: '' }}
           {%- endif -%}
@@ -292,7 +132,7 @@
           <span class="bw-choice__price">{{ render_variant.price | money }}</span>
         </label>
         <label class="bw-choice" data-bw-choice>
-          <input type="radio" class="bw-vh" name="bw-render-{{ section.id }}" value="no">
+          <input type="radio" class="bw-vh" name="bw-render-{{ block.id }}" value="no">
           <span class="bw-choice__title">{{ s.no_title }}</span>
           <span class="bw-choice__text">{{ s.no_text }}</span>
           <span class="bw-choice__price">{{ s.no_price_label }}</span>
@@ -302,8 +142,8 @@
   {%- endif -%}
 
   {%- comment -%} ───────── Review ───────── {%- endcomment -%}
-  <section class="bw-step" data-bw-step="review" data-label="{{ s.review_label | escape }}" aria-labelledby="bw-{{ section.id }}-review" hidden>
-    <h2 class="bw-h" id="bw-{{ section.id }}-review" tabindex="-1">{{ s.review_heading }}</h2>
+  <section class="bw-step" data-bw-step="review" data-label="{{ s.review_label | escape }}" aria-labelledby="bw-{{ block.id }}-review" hidden>
+    <h2 class="bw-h" id="bw-{{ block.id }}-review" tabindex="-1">{{ s.review_heading }}</h2>
     <div class="bw-review" data-bw-review></div>
     <div class="bw-review-total">
       <span>{{ s.total_label }}</span>
@@ -319,7 +159,7 @@
   </div>
 </brickset-wizard>
 
-<style>
+{% stylesheet %}
 brickset-wizard { display: block; }
 
 .bw {
@@ -410,8 +250,6 @@ brickset-wizard { display: block; }
 .bw-none::before { content: ""; width: 14px; height: 14px; border-radius: 50%; border: 2px solid #c9c9c9; box-sizing: border-box; }
 .bw-none[aria-pressed="true"] { color: var(--bw-accent); border: 1.5px solid var(--bw-accent); background: var(--bw-tint); font-weight: 600; }
 .bw-none[aria-pressed="true"]::before { border-color: var(--bw-accent); background: radial-gradient(var(--bw-accent) 40%, transparent 45%); }
-.bw-step[data-bw-step="figures"] .bw-upload { max-width: 720px; padding-top: 24px; border-top: 1px solid var(--bw-line); }
-.bw-upload__h { margin: 0 0 14px; font-size: 19px; font-weight: 700; }
 
 /* ── Upload ── */
 .bw-upload { max-width: 420px; margin: 24px auto 0; }
@@ -551,7 +389,7 @@ brickset-wizard { display: block; }
 
   .bw-group { margin-bottom: 22px; }
   .bw-group + .bw-group { padding-top: 18px; }
-  .bw-group__h, .bw-upload__h { font-size: 17px; }
+  .bw-group__h { font-size: 17px; }
   .bw-group__sub { margin-bottom: 12px; font-size: 13px; }
   .bw-none { margin-top: 10px; padding: 10px 16px; }
 
@@ -595,10 +433,9 @@ brickset-wizard { display: block; }
 @media (prefers-reduced-motion: reduce) {
   .bw *, .bw *::before, .bw *::after { animation: none !important; transition: none !important; }
 }
-</style>
+{% endstylesheet %}
 
-<script>
-{% raw %}
+{% javascript %}
 (() => {
   'use strict';
   if (customElements.get('brickset-wizard')) return;
@@ -624,7 +461,7 @@ brickset-wizard { display: block; }
   }
 
   function formatMoney(cents, format) {
-    format = format || '{{amount}}';
+    format = format || '{' + '{amount}}'; // split so theme check doesn't read it as Liquid
     const match = format.match(/\{\{\s*(\w+)\s*\}\}/);
     const styles = {
       amount: [2, ',', '.'],
@@ -682,6 +519,7 @@ brickset-wizard { display: block; }
   class BricksetWizard extends HTMLElement {
     connectedCallback() {
       if (this.ready) return;
+      this.arrange();
       this.steps = Array.from(this.querySelectorAll('[data-bw-step]'));
       if (!this.steps.length) return;
 
@@ -750,6 +588,18 @@ brickset-wizard { display: block; }
       return this.steps[this.index];
     }
 
+    /** Child blocks all render in step 1: move extras to their own step, drop the photo step without count groups, drop an empty extras step. */
+    arrange() {
+      const extrasStep = this.querySelector('[data-bw-step="extras"]');
+      const extras = this.querySelectorAll('[data-bw-extra-slot]');
+      if (extrasStep) {
+        if (extras.length) extrasStep.querySelector('[data-bw-extras]').append(...extras);
+        else extrasStep.remove();
+      }
+      const photosStep = this.querySelector('[data-bw-step="photos"]');
+      if (photosStep && !this.querySelector('[data-bw-group]')) photosStep.remove();
+    }
+
     /* ----- stepper ----- */
 
     buildStepper() {
@@ -804,7 +654,7 @@ brickset-wizard { display: block; }
       return Array.from(this.state.groups.values()).filter((g) => g.variantId);
     }
 
-    /* ----- photo upload (first step) ----- */
+    /* ----- photo upload ----- */
 
     bindUpload() {
       const { drop, fileInput, thumbs } = this.ui;
@@ -1026,6 +876,9 @@ brickset-wizard { display: block; }
           if (this.state.groups.size && !this.chosenGroups().length) {
             return { msg: this.tx('noFigures', 'Please choose at least one figure.'), target: this.querySelector('[data-bw-options]') };
           }
+          return null;
+        }
+        case 'photos': {
           if (this.state.processing) return { msg: this.tx('preparing', 'Preparing photos…') };
           if (this.ui.drop && !this.state.photos.length) {
             return { msg: this.tx('noPhoto', 'Please upload a photo to continue.'), target: this.ui.drop };
@@ -1251,15 +1104,12 @@ brickset-wizard { display: block; }
     if (wizard && wizard.showBlock) wizard.showBlock(e.target);
   });
 })();
-{% endraw %}
-</script>
+{% endjavascript %}
 
 {% schema %}
 {
   "name": "Wizard",
-  "tag": "section",
-  "class": "section-brickset-wizard",
-  "max_blocks": 20,
+  "tag": null,
   "settings": [
     { "type": "header", "content": "Look" },
     { "type": "color", "id": "accent", "label": "Accent color", "default": "#C8102E", "info": "Selected cards, prices, alerts" },
@@ -1268,15 +1118,16 @@ brickset-wizard { display: block; }
     { "type": "range", "id": "padding", "label": "Vertical padding", "min": 0, "max": 100, "step": 4, "unit": "px", "default": 40 },
 
     { "type": "header", "content": "Step 1: who's in the set" },
-    { "type": "paragraph", "content": "Add one \"Count group\" block for pets and one for people. Both show on this step, with one photo upload below." },
+    { "type": "paragraph", "content": "Add one \"Count group\" block for pets and one for people inside this block. Both show on this step." },
     { "type": "text", "id": "figures_label", "label": "Step label", "default": "Your set" },
     { "type": "text", "id": "figures_heading", "label": "Heading", "default": "Who's in your set?" },
-    { "type": "text", "id": "figures_sub", "label": "Subheading", "default": "Pick how many pets and people, then add your photos." },
-    { "type": "text", "id": "price_prefix", "label": "Price prefix", "info": "e.g. \"from\". Leave empty to show just the price." },
-    { "type": "text", "id": "sold_out_label", "label": "Unavailable label", "default": "Sold out" },
+    { "type": "text", "id": "figures_sub", "label": "Subheading", "default": "Pick how many pets and people." },
 
-    { "type": "header", "content": "Step 1: photo upload" },
-    { "type": "text", "id": "upload_heading", "label": "Upload heading", "default": "Add your photos" },
+    { "type": "header", "content": "Step 2: photos" },
+    { "type": "paragraph", "content": "Hidden when there are no \"Count group\" blocks." },
+    { "type": "text", "id": "upload_label", "label": "Step label", "default": "Photos" },
+    { "type": "text", "id": "upload_heading", "label": "Heading", "default": "Add your photos" },
+    { "type": "text", "id": "upload_sub", "label": "Subheading" },
     { "type": "text", "id": "upload_title", "label": "Upload title", "default": "Photos of everyone in the set" },
     { "type": "text", "id": "upload_button", "label": "Upload button", "default": "Choose photos" },
     { "type": "text", "id": "upload_more_label", "label": "Add more button", "default": "Add more photos" },
@@ -1320,7 +1171,7 @@ brickset-wizard { display: block; }
     { "type": "text", "id": "error_cart", "label": "Could not add to cart", "default": "Something went wrong. Please try again." },
 
     { "type": "header", "content": "Extras step" },
-    { "type": "paragraph", "content": "Add extras as \"Extra product\" blocks. The step is hidden when there are none." },
+    { "type": "paragraph", "content": "Add extras as \"Extra product\" blocks inside this block. The step is hidden when there are none." },
     { "type": "text", "id": "extras_label", "label": "Step label", "default": "Extras" },
     { "type": "text", "id": "extras_heading", "label": "Heading", "default": "Anything to add?" },
     { "type": "text", "id": "extras_note_badge", "label": "Note badge", "default": "Included" },
@@ -1345,51 +1196,13 @@ brickset-wizard { display: block; }
     { "type": "text", "id": "review_heading", "label": "Heading", "default": "Review your order" },
     { "type": "text", "id": "checkout_label", "label": "Checkout button", "default": "Continue to checkout" }
   ],
-  "blocks": [
-    {
-      "type": "figure",
-      "name": "Count group",
-      "settings": [
-        { "type": "paragraph", "content": "Shown on step 1. Each variant of the product becomes an option card." },
-        { "type": "product", "id": "product", "label": "Product" },
-        { "type": "text", "id": "heading", "label": "Question", "default": "How many people?" },
-        { "type": "text", "id": "subheading", "label": "Subheading", "default": "One figure for each person." },
-        { "type": "checkbox", "id": "list_layout", "label": "Show options as a list", "default": false, "info": "Off: grid, 3 cards per row. On: one under another." },
-        {
-          "type": "textarea",
-          "id": "card_lines",
-          "label": "Card texts",
-          "info": "One line per variant: value | icon | name | description. Example: 1 | 🐾 | 1 Pet | Just your pet. Built by you."
-        },
-        { "type": "header", "content": "Rules & messages" },
-        { "type": "checkbox", "id": "allow_skip", "label": "Allow choosing none", "default": false, "info": "Adds a button like \"No pets\" under the cards." },
-        { "type": "text", "id": "skip_label", "label": "\"None\" button text", "default": "None" },
-        { "type": "text", "id": "error_select", "label": "Error: nothing selected", "default": "Please choose how many to continue." }
-      ]
-    },
-    {
-      "type": "extra",
-      "name": "Extra product",
-      "settings": [
-        { "type": "product", "id": "product", "label": "Product" },
-        { "type": "image_picker", "id": "image", "label": "Image", "info": "Optional. Overrides the product image." },
-        { "type": "text", "id": "badge", "label": "Badge", "info": "e.g. Bestseller" },
-        { "type": "text", "id": "description", "label": "Short description" },
-        { "type": "header", "content": "Customer text" },
-        { "type": "checkbox", "id": "needs_text", "label": "Ask the customer for text", "default": false },
-        { "type": "text", "id": "text_property", "label": "Field name (shown on order)", "default": "Text on base" },
-        { "type": "text", "id": "text_placeholder", "label": "Placeholder", "default": "A name, a date, a few words" },
-        { "type": "number", "id": "text_max", "label": "Max characters", "default": 40 },
-        { "type": "text", "id": "text_error", "label": "Error when empty", "default": "Please enter the text to continue." }
-      ]
-    }
-  ],
+  "blocks": [{ "type": "_bw-figure" }, { "type": "_bw-extra" }],
   "presets": [
     {
       "name": "Wizard",
       "blocks": [
         {
-          "type": "figure",
+          "type": "_bw-figure",
           "settings": {
             "heading": "How many pets?",
             "subheading": "One figure for each pet.",
@@ -1399,7 +1212,7 @@ brickset-wizard { display: block; }
           }
         },
         {
-          "type": "figure",
+          "type": "_bw-figure",
           "settings": {
             "heading": "How many people?",
             "subheading": "One figure for each person.",

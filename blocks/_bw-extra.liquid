@@ -1,0 +1,77 @@
+{%- comment -%}
+  Extra product for the Wizard block. Renders inside step 1; the wizard moves it to the Extras step.
+{%- endcomment -%}
+
+{%- if block.settings.product == blank -%}
+  {%- if request.design_mode -%}
+    <p class="bw-placeholder" data-bw-extra-slot {{ block.shopify_attributes }}>Extra product: choose a product in the block settings.</p>
+  {%- endif -%}
+{%- else -%}
+  {%- liquid
+    assign p = block.settings.product
+    assign v = p.selected_or_first_available_variant
+    assign img = block.settings.image | default: p.featured_image
+  -%}
+  <div
+    class="bw-extra{% unless v.available %} is-disabled{% endunless %}"
+    data-bw-extra
+    data-bw-extra-slot
+    data-key="{{ block.id }}"
+    data-variant-id="{{ v.id }}"
+    data-price="{{ v.price }}"
+    data-title="{{ p.title | escape }}"
+    {{ block.shopify_attributes }}
+  >
+    <label class="bw-extra__label">
+      <input type="checkbox" class="bw-vh" data-bw-extra-check {% unless v.available %}disabled{% endunless %}>
+      {%- if block.settings.badge != blank -%}<span class="bw-badge bw-badge--float">{{ block.settings.badge }}</span>{%- endif -%}
+      <span class="bw-extra__media">
+        {%- if img != blank -%}
+          {{ img | image_url: width: 600 | image_tag: loading: 'lazy', sizes: '(min-width: 750px) 240px, 50vw', alt: p.title }}
+        {%- endif -%}
+        <span class="bw-extra__check" aria-hidden="true">✓</span>
+      </span>
+      <span class="bw-extra__title">{{ p.title }}</span>
+      {%- if block.settings.description != blank -%}<span class="bw-extra__desc">{{ block.settings.description }}</span>{%- endif -%}
+      <span class="bw-extra__price">
+        {%- if v.available -%}{{ v.price | money }}{%- else -%}{{ block.settings.sold_out_label }}{%- endif -%}
+      </span>
+    </label>
+    {%- if block.settings.needs_text -%}
+      <div class="bw-extra__text" data-bw-extra-text hidden>
+        <input
+          type="text"
+          class="bw-input"
+          maxlength="{{ block.settings.text_max }}"
+          placeholder="{{ block.settings.text_placeholder | escape }}"
+          aria-label="{{ block.settings.text_property | escape }}"
+          enterkeyhint="next"
+          autocomplete="off"
+          data-property="{{ block.settings.text_property | escape }}"
+          data-error="{{ block.settings.text_error | escape }}"
+        >
+      </div>
+    {%- endif -%}
+  </div>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Extra product",
+  "tag": null,
+  "settings": [
+    { "type": "product", "id": "product", "label": "Product" },
+    { "type": "image_picker", "id": "image", "label": "Image", "info": "Optional. Overrides the product image." },
+    { "type": "text", "id": "badge", "label": "Badge", "info": "e.g. Bestseller" },
+    { "type": "text", "id": "description", "label": "Short description" },
+    { "type": "text", "id": "sold_out_label", "label": "Unavailable label", "default": "Sold out" },
+    { "type": "header", "content": "Customer text" },
+    { "type": "checkbox", "id": "needs_text", "label": "Ask the customer for text", "default": false },
+    { "type": "text", "id": "text_property", "label": "Field name (shown on order)", "default": "Text on base" },
+    { "type": "text", "id": "text_placeholder", "label": "Placeholder", "default": "A name, a date, a few words" },
+    { "type": "number", "id": "text_max", "label": "Max characters", "default": 40 },
+    { "type": "text", "id": "text_error", "label": "Error when empty", "default": "Please enter the text to continue." }
+  ],
+  "presets": [{ "name": "Extra product" }]
+}
+{% endschema %}
