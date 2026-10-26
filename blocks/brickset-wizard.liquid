@@ -160,7 +160,8 @@
 </brickset-wizard>
 
 {% stylesheet %}
-brickset-wizard { display: block; }
+/* Fill the parent section: theme-block sections lay blocks out with flexbox, which would shrink the wizard to its content. */
+brickset-wizard { display: block; width: 100%; flex: 1 1 100%; align-self: stretch; min-width: 0; box-sizing: border-box; }
 
 .bw {
   /* Set per section: --bw-accent, --bw-ink, --bw-card, --bw-pad, --bw-sticky-top */
