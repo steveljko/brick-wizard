@@ -1,0 +1,473 @@
+{%- comment -%}
+  Brickset Wizard for a theme editor "Custom Liquid" section/block.
+  Edit the values below, then paste the WHOLE built file (brickset-wizard.liquid) into the Custom Liquid field.
+  Products are picked by handle (the last part of the product URL). A blank handle hides that group/extra/step.
+{%- endcomment -%}
+
+{%- liquid
+  # ===== Look =====
+  assign accent = '#C8102E'
+  assign ink = '#111111'
+  assign card_bg = '#FFFFFF'
+  assign padding = 40
+  assign sticky_offset = 0
+
+  # ===== Step 1: who's in the set =====
+  assign figures_label = "Your set"
+  assign figures_heading = "Who's in your set?"
+  assign figures_sub = "Pick how many pets and people."
+  assign price_prefix = ""
+  assign sold_out_label = "Sold out"
+
+  assign g1_product = 'pet-figures'
+  assign g1_heading = "How many pets?"
+  assign g1_sub = "One figure for each pet."
+  assign g1_list = false
+  assign g1_skip = true
+  assign g1_skip_label = "No pets"
+  assign g1_error = "Please choose how many pets."
+
+  assign g2_product = 'people-figures'
+  assign g2_heading = "How many people?"
+  assign g2_sub = "One figure for each person."
+  assign g2_list = false
+  assign g2_skip = true
+  assign g2_skip_label = "No people"
+  assign g2_error = "Please choose how many people."
+
+  # ===== Step 2: photos =====
+  assign upload_label = "Photos"
+  assign upload_heading = "Add your photos"
+  assign upload_sub = ""
+  assign upload_title = "Photos of everyone in the set"
+  assign upload_button = "Choose photos"
+  assign upload_more_label = "Add more photos"
+  assign upload_hint = "or drag them here"
+  assign upload_note = "Clear, well-lit photos from a few angles help us get every detail right."
+  assign max_photo_mb = 10
+  assign max_files = 5
+  assign limits_label = "Up to [count] photos, max [size] MB each"
+  assign preparing_label = "Preparing photos…"
+  assign photos_title = "Your photos"
+  assign photos_label = "[count] photo(s)"
+  assign remove_label = "Remove"
+
+  # ===== Extras (blank handle = not shown; step hidden when all are blank) =====
+  assign extras_label = "Extras"
+  assign extras_heading = "Anything to add?"
+  assign extras_note_badge = "Included"
+  assign extras_note = "Glasses are matched from your photo — free."
+
+  assign x1_product = ''
+  assign x1_badge = ""
+  assign x1_description = ""
+  assign x1_needs_text = false
+  assign x1_text_property = "Text on base"
+  assign x1_text_placeholder = "A name, a date, a few words"
+  assign x1_text_max = 40
+  assign x1_text_error = "Please enter the text to continue."
+
+  assign x2_product = ''
+  assign x2_badge = ""
+  assign x2_description = ""
+  assign x2_needs_text = false
+  assign x2_text_property = "Text on base"
+  assign x2_text_placeholder = "A name, a date, a few words"
+  assign x2_text_max = 40
+  assign x2_text_error = "Please enter the text to continue."
+
+  # ===== Approve step (blank handle hides it) =====
+  assign render_handle = ''
+  assign approve_label = "Approve"
+  assign approve_heading = "Confirm your rendering before production?"
+  assign approve_text = "Once a set goes into production it can't be changed, so this is your chance to check it first."
+  assign yes_image_url = ''
+  assign yes_title = "Yes, show me first"
+  assign yes_text = "We send you a rendering of your set and only start production once you approve it. Includes one round of changes."
+  assign yes_review_sub = "Includes one round of changes"
+  assign no_title = "No, go ahead"
+  assign no_text = "We build it straight from your photo. No rendering to review beforehand."
+  assign no_price_label = "Free"
+
+  # ===== Review, checkout, navigation, errors =====
+  assign review_label = "Review"
+  assign review_heading = "Review your order"
+  assign checkout_label = "Continue to checkout"
+  assign redirect = 'checkout'
+  assign continue_label = "Continue"
+  assign back_label = "Back"
+  assign total_label = "Total"
+  assign step_text = "Step [n] of [total]"
+  assign msg_no_figures = "Please choose at least one pet or person."
+  assign error_photo = "Please upload a photo to continue."
+  assign error_too_big = "“[file]” is larger than [size] MB."
+  assign error_too_many = "You can upload up to [count] photos."
+  assign error_not_image = "“[file]” is not an image."
+  assign error_extras_text = "Please fill in the text for your selected extras."
+  assign error_approve = "Please choose whether you want to see a rendering first."
+  assign error_cart = "Something went wrong. Please try again."
+-%}
+
+{%- comment -%} ===== Card texts per count group: value | icon | name | description ===== {%- endcomment -%}
+{%- capture g1_cards -%}
+1 | 🐾 | 1 Pet | Just your pet. Built by you.
+2 | 🐶 | 2 Pets | Two best friends, side by side.
+3 | 🐕 | 3 Pets | The whole pack together.
+{%- endcapture -%}
+
+{%- capture g2_cards -%}
+1 | 🧍 | 1 Person | Just you, in brick form.
+2 | 👫 | 2 People | Perfect for couples and best friends.
+3 | 👨‍👩‍👦 | 3 People | A small family set.
+4 | 👨‍👩‍👧‍👦 | 4 People | The whole family.
+5 | 🧑‍🤝‍🧑 | 5 People | Family and friends.
+6 | 🎉 | 6 People | The full crew.
+{%- endcapture -%}
+
+{%- comment -%} ===== End of settings ===== {%- endcomment -%}
+
+{%- liquid
+  assign uid = 'bw-' | append: section.id
+  if render_handle != blank
+    assign render_product = all_products[render_handle]
+  endif
+  assign render_variant = render_product.selected_or_first_available_variant
+  assign max_files_text = max_files | append: ''
+  assign max_mb_text = max_photo_mb | append: ''
+  assign limits_text = limits_label | replace: '[count]', max_files_text | replace: '[size]', max_mb_text
+-%}
+
+<brickset-wizard
+  class="bw"
+  style="--bw-pad: {{ padding }}px; --bw-accent: {{ accent }}; --bw-ink: {{ ink }}; --bw-card: {{ card_bg }}; --bw-sticky-top: {{ sticky_offset }}px;"
+>
+  <script type="application/json" data-bw-config>
+    {
+      "moneyFormat": {{ shop.money_format | strip_html | json }},
+      "redirect": {{ redirect | json }},
+      "maxMb": {{ max_photo_mb | json }},
+      "maxFiles": {{ max_files | json }},
+      "resizePx": 2500,
+      "text": {
+        "continue": {{ continue_label | json }},
+        "checkout": {{ checkout_label | json }},
+        "stepText": {{ step_text | json }},
+        "noFigures": {{ msg_no_figures | json }},
+        "noPhoto": {{ error_photo | json }},
+        "extrasText": {{ error_extras_text | json }},
+        "approve": {{ error_approve | json }},
+        "tooBig": {{ error_too_big | json }},
+        "tooMany": {{ error_too_many | json }},
+        "notImage": {{ error_not_image | json }},
+        "cartError": {{ error_cart | json }},
+        "preparing": {{ preparing_label | json }},
+        "remove": {{ remove_label | json }},
+        "photosTitle": {{ photos_title | json }},
+        "photos": {{ photos_label | json }}
+      }
+    }
+  </script>
+
+  <ol class="bw-stepper" data-bw-stepper aria-label="Progress"></ol>
+
+  <div class="bw-summary">
+    <div class="bw-summary__step">
+      <span class="bw-summary__steptext" data-bw-steptext></span>
+      <span class="bw-progress" aria-hidden="true"><span class="bw-progress__bar" data-bw-progress></span></span>
+    </div>
+    <div class="bw-summary__total" data-bw-total hidden aria-live="polite">
+      <span class="bw-summary__label">{{ total_label }}</span>
+      <strong class="bw-summary__amount" data-bw-total-amount></strong>
+    </div>
+  </div>
+
+  {%- comment -%} ───────── Step 1: pets + people ───────── {%- endcomment -%}
+  <section class="bw-step" data-bw-step="figures" data-label="{{ figures_label | escape }}" aria-labelledby="{{ uid }}-figures" hidden>
+    <h2 class="bw-h" id="{{ uid }}-figures" tabindex="-1">{{ figures_heading }}</h2>
+    {%- if figures_sub != blank -%}<p class="bw-sub">{{ figures_sub }}</p>{%- endif -%}
+
+    {%- for g in (1..2) -%}
+      {%- liquid
+        case g
+          when 1
+            assign handle = g1_product
+            assign heading = g1_heading
+            assign subheading = g1_sub
+            assign list_layout = g1_list
+            assign allow_skip = g1_skip
+            assign skip_label = g1_skip_label
+            assign error_select = g1_error
+            assign cards = g1_cards
+          when 2
+            assign handle = g2_product
+            assign heading = g2_heading
+            assign subheading = g2_sub
+            assign list_layout = g2_list
+            assign allow_skip = g2_skip
+            assign skip_label = g2_skip_label
+            assign error_select = g2_error
+            assign cards = g2_cards
+        endcase
+        if handle == blank
+          continue
+        endif
+        assign p = all_products[handle]
+        if p == blank
+          continue
+        endif
+        assign lines = cards | newline_to_br | split: '<br />'
+        assign group = uid | append: '-g' | append: g
+        assign layout = 'grid'
+        if list_layout
+          assign layout = 'list'
+        endif
+      -%}
+
+      <div class="bw-group" data-bw-group data-block-id="g{{ g }}" data-err-select="{{ error_select | escape }}">
+        <h3 class="bw-group__h" id="{{ group }}-h">{{ heading }}</h3>
+        {%- if subheading != blank -%}<p class="bw-group__sub">{{ subheading }}</p>{%- endif -%}
+
+        <div class="bw-opts bw-opts--{{ layout }}" role="radiogroup" aria-labelledby="{{ group }}-h" data-bw-options>
+          {%- for variant in p.variants -%}
+            {%- liquid
+              assign vi = forloop.index0
+              assign opt_icon = ''
+              assign opt_name = ''
+              assign opt_desc = ''
+              assign matched = false
+
+              for line in lines
+                assign parts = line | strip | split: '|'
+                if parts.size > 3
+                  assign key = parts[0] | strip
+                  if key == variant.option1
+                    assign opt_icon = parts[1] | strip
+                    assign opt_name = parts[2] | strip
+                    assign opt_desc = parts[3] | strip
+                    assign matched = true
+                    break
+                  endif
+                endif
+              endfor
+
+              unless matched
+                assign parts = lines[vi] | strip | split: '|'
+                if parts.size < 4
+                  assign opt_icon = parts[0] | strip
+                  assign opt_name = parts[1] | strip
+                  assign opt_desc = parts[2] | strip
+                endif
+              endunless
+
+              if opt_name == blank
+                assign opt_name = variant.title
+              endif
+
+              assign item_title = p.title
+              unless variant.title == 'Default Title'
+                assign item_title = item_title | append: ' · ' | append: opt_name
+              endunless
+            -%}
+
+            <label class="bw-opt{% unless variant.available %} is-disabled{% endunless %}">
+              <input
+                type="radio"
+                class="bw-vh"
+                name="{{ group }}"
+                value="{{ variant.id }}"
+                data-bw-option
+                data-price="{{ variant.price }}"
+                data-title="{{ item_title | escape }}"
+                {% unless variant.available %}disabled{% endunless %}
+              >
+              <span class="bw-opt__radio" aria-hidden="true"></span>
+              {%- if opt_icon != blank -%}<span class="bw-opt__icon" aria-hidden="true">{{ opt_icon }}</span>{%- endif -%}
+              <span class="bw-opt__body">
+                <span class="bw-opt__name">{{ opt_name }}</span>
+                {%- if opt_desc != blank -%}<span class="bw-opt__desc">{{ opt_desc }}</span>{%- endif -%}
+              </span>
+              <span class="bw-opt__price">
+                {%- if variant.available -%}
+                  <span class="bw-opt__now">
+                    {%- if price_prefix != blank -%}<small>{{ price_prefix }}</small> {% endif -%}
+                    {{- variant.price | money -}}
+                  </span>
+                  {%- if variant.compare_at_price > variant.price -%}
+                    <s class="bw-opt__was">{{ variant.compare_at_price | money }}</s>
+                  {%- endif -%}
+                {%- else -%}
+                  <span class="bw-opt__soldout">{{ sold_out_label }}</span>
+                {%- endif -%}
+              </span>
+            </label>
+          {%- endfor -%}
+        </div>
+
+        {%- if allow_skip -%}
+          <button type="button" class="bw-none" data-bw-none aria-pressed="false">{{ skip_label }}</button>
+        {%- endif -%}
+      </div>
+    {%- endfor -%}
+  </section>
+
+  {%- comment -%} ───────── Step 2: photos ───────── {%- endcomment -%}
+  <section class="bw-step" data-bw-step="photos" data-label="{{ upload_label | escape }}" aria-labelledby="{{ uid }}-photos" hidden>
+    <h2 class="bw-h" id="{{ uid }}-photos" tabindex="-1">{{ upload_heading }}</h2>
+    {%- if upload_sub != blank -%}<p class="bw-sub">{{ upload_sub }}</p>{%- endif -%}
+    <div class="bw-upload">
+      <label class="bw-drop" data-bw-drop>
+        <input type="file" class="bw-vh" accept="image/*,.heic,.heif" multiple data-bw-file>
+        <span class="bw-drop__title">{{ upload_title }}</span>
+        <span class="bw-btn bw-btn--outline">
+          <span data-bw-btn-first>{{ upload_button }}</span>
+          <span data-bw-btn-more hidden>{{ upload_more_label }}</span>
+        </span>
+        <span class="bw-drop__hint" data-bw-hint>{{ upload_hint }}</span>
+        <span class="bw-drop__limits">{{ limits_text }}</span>
+      </label>
+      <div class="bw-thumbs" data-bw-thumbs></div>
+      <p class="bw-error" data-bw-file-error role="alert"></p>
+      {%- if upload_note != blank -%}<p class="bw-note">{{ upload_note }}</p>{%- endif -%}
+    </div>
+  </section>
+
+  {%- comment -%} ───────── Extras ───────── {%- endcomment -%}
+  <section class="bw-step" data-bw-step="extras" data-label="{{ extras_label | escape }}" aria-labelledby="{{ uid }}-extras" hidden>
+    <h2 class="bw-h" id="{{ uid }}-extras" tabindex="-1">{{ extras_heading }}</h2>
+    {%- if extras_note != blank -%}
+      <p class="bw-pill">
+        {%- if extras_note_badge != blank -%}<span class="bw-badge">{{ extras_note_badge }}</span>{%- endif -%}
+        {{ extras_note }}
+      </p>
+    {%- endif -%}
+    <div class="bw-extras" data-bw-extras>
+      {%- for x in (1..2) -%}
+        {%- liquid
+          case x
+            when 1
+              assign handle = x1_product
+              assign badge = x1_badge
+              assign description = x1_description
+              assign needs_text = x1_needs_text
+              assign text_property = x1_text_property
+              assign text_placeholder = x1_text_placeholder
+              assign text_max = x1_text_max
+              assign text_error = x1_text_error
+            when 2
+              assign handle = x2_product
+              assign badge = x2_badge
+              assign description = x2_description
+              assign needs_text = x2_needs_text
+              assign text_property = x2_text_property
+              assign text_placeholder = x2_text_placeholder
+              assign text_max = x2_text_max
+              assign text_error = x2_text_error
+          endcase
+          if handle == blank
+            continue
+          endif
+          assign p = all_products[handle]
+          if p == blank
+            continue
+          endif
+          assign v = p.selected_or_first_available_variant
+        -%}
+        <div
+          class="bw-extra{% unless v.available %} is-disabled{% endunless %}"
+          data-bw-extra
+          data-bw-extra-slot
+          data-key="x{{ x }}"
+          data-variant-id="{{ v.id }}"
+          data-price="{{ v.price }}"
+          data-title="{{ p.title | escape }}"
+        >
+          <label class="bw-extra__label">
+            <input type="checkbox" class="bw-vh" data-bw-extra-check {% unless v.available %}disabled{% endunless %}>
+            {%- if badge != blank -%}<span class="bw-badge bw-badge--float">{{ badge }}</span>{%- endif -%}
+            <span class="bw-extra__media">
+              {%- if p.featured_image != blank -%}
+                {{ p.featured_image | image_url: width: 600 | image_tag: loading: 'lazy', sizes: '(min-width: 750px) 240px, 50vw', alt: p.title }}
+              {%- endif -%}
+              <span class="bw-extra__check" aria-hidden="true">✓</span>
+            </span>
+            <span class="bw-extra__title">{{ p.title }}</span>
+            {%- if description != blank -%}<span class="bw-extra__desc">{{ description }}</span>{%- endif -%}
+            <span class="bw-extra__price">
+              {%- if v.available -%}{{ v.price | money }}{%- else -%}{{ sold_out_label }}{%- endif -%}
+            </span>
+          </label>
+          {%- if needs_text -%}
+            <div class="bw-extra__text" data-bw-extra-text hidden>
+              <input
+                type="text"
+                class="bw-input"
+                maxlength="{{ text_max }}"
+                placeholder="{{ text_placeholder | escape }}"
+                aria-label="{{ text_property | escape }}"
+                enterkeyhint="next"
+                autocomplete="off"
+                data-property="{{ text_property | escape }}"
+                data-error="{{ text_error | escape }}"
+              >
+            </div>
+          {%- endif -%}
+        </div>
+      {%- endfor -%}
+    </div>
+  </section>
+
+  {%- comment -%} ───────── Approve (paid rendering) ───────── {%- endcomment -%}
+  {%- if render_product != blank -%}
+    <section
+      class="bw-step"
+      data-bw-step="approve"
+      data-label="{{ approve_label | escape }}"
+      data-render-variant="{{ render_variant.id }}"
+      data-render-price="{{ render_variant.price }}"
+      data-render-title="{{ render_product.title | escape }}"
+      data-render-sub="{{ yes_review_sub | escape }}"
+      aria-labelledby="{{ uid }}-approve"
+      hidden
+    >
+      <h2 class="bw-h" id="{{ uid }}-approve" tabindex="-1">{{ approve_heading }}</h2>
+      {%- if approve_text != blank -%}<p class="bw-sub bw-sub--narrow">{{ approve_text }}</p>{%- endif -%}
+      <div class="bw-approve" role="radiogroup" aria-labelledby="{{ uid }}-approve">
+        <label class="bw-choice" data-bw-choice>
+          <input type="radio" class="bw-vh" name="{{ uid }}-render" value="yes">
+          {%- if yes_image_url != blank -%}
+            <img class="bw-choice__img" src="{{ yes_image_url }}" alt="" width="600" height="600" loading="lazy">
+          {%- endif -%}
+          <span class="bw-choice__title">{{ yes_title }}</span>
+          <span class="bw-choice__text">{{ yes_text }}</span>
+          <span class="bw-choice__price">{{ render_variant.price | money }}</span>
+        </label>
+        <label class="bw-choice" data-bw-choice>
+          <input type="radio" class="bw-vh" name="{{ uid }}-render" value="no">
+          <span class="bw-choice__title">{{ no_title }}</span>
+          <span class="bw-choice__text">{{ no_text }}</span>
+          <span class="bw-choice__price">{{ no_price_label }}</span>
+        </label>
+      </div>
+    </section>
+  {%- endif -%}
+
+  {%- comment -%} ───────── Review ───────── {%- endcomment -%}
+  <section class="bw-step" data-bw-step="review" data-label="{{ review_label | escape }}" aria-labelledby="{{ uid }}-review" hidden>
+    <h2 class="bw-h" id="{{ uid }}-review" tabindex="-1">{{ review_heading }}</h2>
+    <div class="bw-review" data-bw-review></div>
+    <div class="bw-review-total">
+      <span>{{ total_label }}</span>
+      <strong data-bw-review-total></strong>
+    </div>
+  </section>
+
+  <p class="bw-alert" data-bw-alert role="alert"></p>
+
+  <div class="bw-nav">
+    <button type="button" class="bw-link" data-bw-back hidden>{{ back_label }}</button>
+    <button type="button" class="bw-btn bw-btn--primary bw-next" data-bw-next>{{ continue_label }}</button>
+  </div>
+</brickset-wizard>
+
+<style>/*BW_CSS*/</style>
+<script>{% raw %}/*BW_JS*/{% endraw %}</script>

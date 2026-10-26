@@ -1,0 +1,434 @@
+{%- comment -%}
+Brickset Wizard for a theme editor "Custom Liquid" section/block.
+Edit the values below, then paste the WHOLE built file (brickset-wizard.liquid) into the Custom Liquid field.
+Products are picked by handle (the last part of the product URL). A blank handle hides that group/extra/step.
+{%- endcomment -%}
+{%- liquid
+# ===== Look =====
+assign accent = '#C8102E'
+assign ink = '#111111'
+assign card_bg = '#FFFFFF'
+assign padding = 40
+assign sticky_offset = 0
+# ===== Step 1: who's in the set =====
+assign figures_label = "Your set"
+assign figures_heading = "Who's in your set?"
+assign figures_sub = "Pick how many pets and people."
+assign price_prefix = ""
+assign sold_out_label = "Sold out"
+assign g1_product = 'pet-figures'
+assign g1_heading = "How many pets?"
+assign g1_sub = "One figure for each pet."
+assign g1_list = false
+assign g1_skip = true
+assign g1_skip_label = "No pets"
+assign g1_error = "Please choose how many pets."
+assign g2_product = 'people-figures'
+assign g2_heading = "How many people?"
+assign g2_sub = "One figure for each person."
+assign g2_list = false
+assign g2_skip = true
+assign g2_skip_label = "No people"
+assign g2_error = "Please choose how many people."
+# ===== Step 2: photos =====
+assign upload_label = "Photos"
+assign upload_heading = "Add your photos"
+assign upload_sub = ""
+assign upload_title = "Photos of everyone in the set"
+assign upload_button = "Choose photos"
+assign upload_more_label = "Add more photos"
+assign upload_hint = "or drag them here"
+assign upload_note = "Clear, well-lit photos from a few angles help us get every detail right."
+assign max_photo_mb = 10
+assign max_files = 5
+assign limits_label = "Up to [count] photos, max [size] MB each"
+assign preparing_label = "Preparing photos…"
+assign photos_title = "Your photos"
+assign photos_label = "[count] photo(s)"
+assign remove_label = "Remove"
+# ===== Extras (blank handle = not shown; step hidden when all are blank) =====
+assign extras_label = "Extras"
+assign extras_heading = "Anything to add?"
+assign extras_note_badge = "Included"
+assign extras_note = "Glasses are matched from your photo — free."
+assign x1_product = ''
+assign x1_badge = ""
+assign x1_description = ""
+assign x1_needs_text = false
+assign x1_text_property = "Text on base"
+assign x1_text_placeholder = "A name, a date, a few words"
+assign x1_text_max = 40
+assign x1_text_error = "Please enter the text to continue."
+assign x2_product = ''
+assign x2_badge = ""
+assign x2_description = ""
+assign x2_needs_text = false
+assign x2_text_property = "Text on base"
+assign x2_text_placeholder = "A name, a date, a few words"
+assign x2_text_max = 40
+assign x2_text_error = "Please enter the text to continue."
+# ===== Approve step (blank handle hides it) =====
+assign render_handle = ''
+assign approve_label = "Approve"
+assign approve_heading = "Confirm your rendering before production?"
+assign approve_text = "Once a set goes into production it can't be changed, so this is your chance to check it first."
+assign yes_image_url = ''
+assign yes_title = "Yes, show me first"
+assign yes_text = "We send you a rendering of your set and only start production once you approve it. Includes one round of changes."
+assign yes_review_sub = "Includes one round of changes"
+assign no_title = "No, go ahead"
+assign no_text = "We build it straight from your photo. No rendering to review beforehand."
+assign no_price_label = "Free"
+# ===== Review, checkout, navigation, errors =====
+assign review_label = "Review"
+assign review_heading = "Review your order"
+assign checkout_label = "Continue to checkout"
+assign redirect = 'checkout'
+assign continue_label = "Continue"
+assign back_label = "Back"
+assign total_label = "Total"
+assign step_text = "Step [n] of [total]"
+assign msg_no_figures = "Please choose at least one pet or person."
+assign error_photo = "Please upload a photo to continue."
+assign error_too_big = "“[file]” is larger than [size] MB."
+assign error_too_many = "You can upload up to [count] photos."
+assign error_not_image = "“[file]” is not an image."
+assign error_extras_text = "Please fill in the text for your selected extras."
+assign error_approve = "Please choose whether you want to see a rendering first."
+assign error_cart = "Something went wrong. Please try again."
+-%}
+{%- comment -%} ===== Card texts per count group: value | icon | name | description ===== {%- endcomment -%}
+{%- capture g1_cards -%}
+1 | 🐾 | 1 Pet | Just your pet. Built by you.
+2 | 🐶 | 2 Pets | Two best friends, side by side.
+3 | 🐕 | 3 Pets | The whole pack together.
+{%- endcapture -%}
+{%- capture g2_cards -%}
+1 | 🧍 | 1 Person | Just you, in brick form.
+2 | 👫 | 2 People | Perfect for couples and best friends.
+3 | 👨‍👩‍👦 | 3 People | A small family set.
+4 | 👨‍👩‍👧‍👦 | 4 People | The whole family.
+5 | 🧑‍🤝‍🧑 | 5 People | Family and friends.
+6 | 🎉 | 6 People | The full crew.
+{%- endcapture -%}
+{%- comment -%} ===== End of settings ===== {%- endcomment -%}
+{%- liquid
+assign uid = 'bw-' | append: section.id
+if render_handle != blank
+assign render_product = all_products[render_handle]
+endif
+assign render_variant = render_product.selected_or_first_available_variant
+assign max_files_text = max_files | append: ''
+assign max_mb_text = max_photo_mb | append: ''
+assign limits_text = limits_label | replace: '[count]', max_files_text | replace: '[size]', max_mb_text
+-%}
+<brickset-wizard
+class="bw"
+style="--bw-pad: {{ padding }}px; --bw-accent: {{ accent }}; --bw-ink: {{ ink }}; --bw-card: {{ card_bg }}; --bw-sticky-top: {{ sticky_offset }}px;"
+>
+<script type="application/json" data-bw-config>
+{
+"moneyFormat": {{ shop.money_format | strip_html | json }},
+"redirect": {{ redirect | json }},
+"maxMb": {{ max_photo_mb | json }},
+"maxFiles": {{ max_files | json }},
+"resizePx": 2500,
+"text": {
+"continue": {{ continue_label | json }},
+"checkout": {{ checkout_label | json }},
+"stepText": {{ step_text | json }},
+"noFigures": {{ msg_no_figures | json }},
+"noPhoto": {{ error_photo | json }},
+"extrasText": {{ error_extras_text | json }},
+"approve": {{ error_approve | json }},
+"tooBig": {{ error_too_big | json }},
+"tooMany": {{ error_too_many | json }},
+"notImage": {{ error_not_image | json }},
+"cartError": {{ error_cart | json }},
+"preparing": {{ preparing_label | json }},
+"remove": {{ remove_label | json }},
+"photosTitle": {{ photos_title | json }},
+"photos": {{ photos_label | json }}
+}
+}
+</script>
+<ol class="bw-stepper" data-bw-stepper aria-label="Progress"></ol>
+<div class="bw-summary">
+<div class="bw-summary__step">
+<span class="bw-summary__steptext" data-bw-steptext></span>
+<span class="bw-progress" aria-hidden="true"><span class="bw-progress__bar" data-bw-progress></span></span>
+</div>
+<div class="bw-summary__total" data-bw-total hidden aria-live="polite">
+<span class="bw-summary__label">{{ total_label }}</span>
+<strong class="bw-summary__amount" data-bw-total-amount></strong>
+</div>
+</div>
+<section class="bw-step" data-bw-step="figures" data-label="{{ figures_label | escape }}" aria-labelledby="{{ uid }}-figures" hidden>
+<h2 class="bw-h" id="{{ uid }}-figures" tabindex="-1">{{ figures_heading }}</h2>
+{%- if figures_sub != blank -%}<p class="bw-sub">{{ figures_sub }}</p>{%- endif -%}
+{%- for g in (1..2) -%}
+{%- liquid
+case g
+when 1
+assign handle = g1_product
+assign heading = g1_heading
+assign subheading = g1_sub
+assign list_layout = g1_list
+assign allow_skip = g1_skip
+assign skip_label = g1_skip_label
+assign error_select = g1_error
+assign cards = g1_cards
+when 2
+assign handle = g2_product
+assign heading = g2_heading
+assign subheading = g2_sub
+assign list_layout = g2_list
+assign allow_skip = g2_skip
+assign skip_label = g2_skip_label
+assign error_select = g2_error
+assign cards = g2_cards
+endcase
+if handle == blank
+continue
+endif
+assign p = all_products[handle]
+if p == blank
+continue
+endif
+assign lines = cards | newline_to_br | split: '<br />'
+assign group = uid | append: '-g' | append: g
+assign layout = 'grid'
+if list_layout
+assign layout = 'list'
+endif
+-%}
+<div class="bw-group" data-bw-group data-block-id="g{{ g }}" data-err-select="{{ error_select | escape }}">
+<h3 class="bw-group__h" id="{{ group }}-h">{{ heading }}</h3>
+{%- if subheading != blank -%}<p class="bw-group__sub">{{ subheading }}</p>{%- endif -%}
+<div class="bw-opts bw-opts--{{ layout }}" role="radiogroup" aria-labelledby="{{ group }}-h" data-bw-options>
+{%- for variant in p.variants -%}
+{%- liquid
+assign vi = forloop.index0
+assign opt_icon = ''
+assign opt_name = ''
+assign opt_desc = ''
+assign matched = false
+for line in lines
+assign parts = line | strip | split: '|'
+if parts.size > 3
+assign key = parts[0] | strip
+if key == variant.option1
+assign opt_icon = parts[1] | strip
+assign opt_name = parts[2] | strip
+assign opt_desc = parts[3] | strip
+assign matched = true
+break
+endif
+endif
+endfor
+unless matched
+assign parts = lines[vi] | strip | split: '|'
+if parts.size < 4
+assign opt_icon = parts[0] | strip
+assign opt_name = parts[1] | strip
+assign opt_desc = parts[2] | strip
+endif
+endunless
+if opt_name == blank
+assign opt_name = variant.title
+endif
+assign item_title = p.title
+unless variant.title == 'Default Title'
+assign item_title = item_title | append: ' · ' | append: opt_name
+endunless
+-%}
+<label class="bw-opt{% unless variant.available %} is-disabled{% endunless %}">
+<input
+type="radio"
+class="bw-vh"
+name="{{ group }}"
+value="{{ variant.id }}"
+data-bw-option
+data-price="{{ variant.price }}"
+data-title="{{ item_title | escape }}"
+{% unless variant.available %}disabled{% endunless %}
+>
+<span class="bw-opt__radio" aria-hidden="true"></span>
+{%- if opt_icon != blank -%}<span class="bw-opt__icon" aria-hidden="true">{{ opt_icon }}</span>{%- endif -%}
+<span class="bw-opt__body">
+<span class="bw-opt__name">{{ opt_name }}</span>
+{%- if opt_desc != blank -%}<span class="bw-opt__desc">{{ opt_desc }}</span>{%- endif -%}
+</span>
+<span class="bw-opt__price">
+{%- if variant.available -%}
+<span class="bw-opt__now">
+{%- if price_prefix != blank -%}<small>{{ price_prefix }}</small> {% endif -%}
+{{- variant.price | money -}}
+</span>
+{%- if variant.compare_at_price > variant.price -%}
+<s class="bw-opt__was">{{ variant.compare_at_price | money }}</s>
+{%- endif -%}
+{%- else -%}
+<span class="bw-opt__soldout">{{ sold_out_label }}</span>
+{%- endif -%}
+</span>
+</label>
+{%- endfor -%}
+</div>
+{%- if allow_skip -%}
+<button type="button" class="bw-none" data-bw-none aria-pressed="false">{{ skip_label }}</button>
+{%- endif -%}
+</div>
+{%- endfor -%}
+</section>
+<section class="bw-step" data-bw-step="photos" data-label="{{ upload_label | escape }}" aria-labelledby="{{ uid }}-photos" hidden>
+<h2 class="bw-h" id="{{ uid }}-photos" tabindex="-1">{{ upload_heading }}</h2>
+{%- if upload_sub != blank -%}<p class="bw-sub">{{ upload_sub }}</p>{%- endif -%}
+<div class="bw-upload">
+<label class="bw-drop" data-bw-drop>
+<input type="file" class="bw-vh" accept="image/*,.heic,.heif" multiple data-bw-file>
+<span class="bw-drop__title">{{ upload_title }}</span>
+<span class="bw-btn bw-btn--outline">
+<span data-bw-btn-first>{{ upload_button }}</span>
+<span data-bw-btn-more hidden>{{ upload_more_label }}</span>
+</span>
+<span class="bw-drop__hint" data-bw-hint>{{ upload_hint }}</span>
+<span class="bw-drop__limits">{{ limits_text }}</span>
+</label>
+<div class="bw-thumbs" data-bw-thumbs></div>
+<p class="bw-error" data-bw-file-error role="alert"></p>
+{%- if upload_note != blank -%}<p class="bw-note">{{ upload_note }}</p>{%- endif -%}
+</div>
+</section>
+<section class="bw-step" data-bw-step="extras" data-label="{{ extras_label | escape }}" aria-labelledby="{{ uid }}-extras" hidden>
+<h2 class="bw-h" id="{{ uid }}-extras" tabindex="-1">{{ extras_heading }}</h2>
+{%- if extras_note != blank -%}
+<p class="bw-pill">
+{%- if extras_note_badge != blank -%}<span class="bw-badge">{{ extras_note_badge }}</span>{%- endif -%}
+{{ extras_note }}
+</p>
+{%- endif -%}
+<div class="bw-extras" data-bw-extras>
+{%- for x in (1..2) -%}
+{%- liquid
+case x
+when 1
+assign handle = x1_product
+assign badge = x1_badge
+assign description = x1_description
+assign needs_text = x1_needs_text
+assign text_property = x1_text_property
+assign text_placeholder = x1_text_placeholder
+assign text_max = x1_text_max
+assign text_error = x1_text_error
+when 2
+assign handle = x2_product
+assign badge = x2_badge
+assign description = x2_description
+assign needs_text = x2_needs_text
+assign text_property = x2_text_property
+assign text_placeholder = x2_text_placeholder
+assign text_max = x2_text_max
+assign text_error = x2_text_error
+endcase
+if handle == blank
+continue
+endif
+assign p = all_products[handle]
+if p == blank
+continue
+endif
+assign v = p.selected_or_first_available_variant
+-%}
+<div
+class="bw-extra{% unless v.available %} is-disabled{% endunless %}"
+data-bw-extra
+data-bw-extra-slot
+data-key="x{{ x }}"
+data-variant-id="{{ v.id }}"
+data-price="{{ v.price }}"
+data-title="{{ p.title | escape }}"
+>
+<label class="bw-extra__label">
+<input type="checkbox" class="bw-vh" data-bw-extra-check {% unless v.available %}disabled{% endunless %}>
+{%- if badge != blank -%}<span class="bw-badge bw-badge--float">{{ badge }}</span>{%- endif -%}
+<span class="bw-extra__media">
+{%- if p.featured_image != blank -%}
+{{ p.featured_image | image_url: width: 600 | image_tag: loading: 'lazy', sizes: '(min-width: 750px) 240px, 50vw', alt: p.title }}
+{%- endif -%}
+<span class="bw-extra__check" aria-hidden="true">✓</span>
+</span>
+<span class="bw-extra__title">{{ p.title }}</span>
+{%- if description != blank -%}<span class="bw-extra__desc">{{ description }}</span>{%- endif -%}
+<span class="bw-extra__price">
+{%- if v.available -%}{{ v.price | money }}{%- else -%}{{ sold_out_label }}{%- endif -%}
+</span>
+</label>
+{%- if needs_text -%}
+<div class="bw-extra__text" data-bw-extra-text hidden>
+<input
+type="text"
+class="bw-input"
+maxlength="{{ text_max }}"
+placeholder="{{ text_placeholder | escape }}"
+aria-label="{{ text_property | escape }}"
+enterkeyhint="next"
+autocomplete="off"
+data-property="{{ text_property | escape }}"
+data-error="{{ text_error | escape }}"
+>
+</div>
+{%- endif -%}
+</div>
+{%- endfor -%}
+</div>
+</section>
+{%- if render_product != blank -%}
+<section
+class="bw-step"
+data-bw-step="approve"
+data-label="{{ approve_label | escape }}"
+data-render-variant="{{ render_variant.id }}"
+data-render-price="{{ render_variant.price }}"
+data-render-title="{{ render_product.title | escape }}"
+data-render-sub="{{ yes_review_sub | escape }}"
+aria-labelledby="{{ uid }}-approve"
+hidden
+>
+<h2 class="bw-h" id="{{ uid }}-approve" tabindex="-1">{{ approve_heading }}</h2>
+{%- if approve_text != blank -%}<p class="bw-sub bw-sub--narrow">{{ approve_text }}</p>{%- endif -%}
+<div class="bw-approve" role="radiogroup" aria-labelledby="{{ uid }}-approve">
+<label class="bw-choice" data-bw-choice>
+<input type="radio" class="bw-vh" name="{{ uid }}-render" value="yes">
+{%- if yes_image_url != blank -%}
+<img class="bw-choice__img" src="{{ yes_image_url }}" alt="" width="600" height="600" loading="lazy">
+{%- endif -%}
+<span class="bw-choice__title">{{ yes_title }}</span>
+<span class="bw-choice__text">{{ yes_text }}</span>
+<span class="bw-choice__price">{{ render_variant.price | money }}</span>
+</label>
+<label class="bw-choice" data-bw-choice>
+<input type="radio" class="bw-vh" name="{{ uid }}-render" value="no">
+<span class="bw-choice__title">{{ no_title }}</span>
+<span class="bw-choice__text">{{ no_text }}</span>
+<span class="bw-choice__price">{{ no_price_label }}</span>
+</label>
+</div>
+</section>
+{%- endif -%}
+<section class="bw-step" data-bw-step="review" data-label="{{ review_label | escape }}" aria-labelledby="{{ uid }}-review" hidden>
+<h2 class="bw-h" id="{{ uid }}-review" tabindex="-1">{{ review_heading }}</h2>
+<div class="bw-review" data-bw-review></div>
+<div class="bw-review-total">
+<span>{{ total_label }}</span>
+<strong data-bw-review-total></strong>
+</div>
+</section>
+<p class="bw-alert" data-bw-alert role="alert"></p>
+<div class="bw-nav">
+<button type="button" class="bw-link" data-bw-back hidden>{{ back_label }}</button>
+<button type="button" class="bw-btn bw-btn--primary bw-next" data-bw-next>{{ continue_label }}</button>
+</div>
+</brickset-wizard>
+<style>brickset-wizard{display:block;width:100%;flex:1 1 100%;align-self:stretch;min-width:0;box-sizing:border-box}.bw{--bw-muted: color-mix(in srgb, currentColor 62%, transparent);--bw-line: color-mix(in srgb, currentColor 14%, transparent);--bw-tint: color-mix(in srgb, var(--bw-accent) 6%, var(--bw-card));--bw-radius: 12px;padding:var(--bw-pad, 40px) 16px;font-family:inherit}.bw [hidden]{display:none!important}.bw-vh{position:absolute!important;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}.bw-placeholder{max-width:560px;margin:0 auto 12px;padding:16px;text-align:center;border:1px dashed var(--bw-line);border-radius:var(--bw-radius);color:var(--bw-muted)}.bw-stepper{display:flex;justify-content:center;margin:0 auto 40px;padding:0;list-style:none}.bw-stepper__item{position:relative;width:84px;display:flex;flex-direction:column;align-items:center;gap:8px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--bw-muted)}.bw-stepper__item+.bw-stepper__item:before{content:"";position:absolute;top:15px;right:calc(50% + 22px);width:calc(100% - 44px);height:2px;background:var(--bw-line)}.bw-stepper__item.is-done:before,.bw-stepper__item.is-current:before{background:var(--bw-ink)}.bw-stepper__dot{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:13px;font-weight:600;background:var(--bw-card);border:1px solid var(--bw-line);color:inherit}.bw-stepper__item.is-done,.bw-stepper__item.is-current{color:inherit;font-weight:600}.bw-stepper__item.is-done .bw-stepper__dot,.bw-stepper__item.is-current .bw-stepper__dot{background:var(--bw-ink);border-color:var(--bw-ink);color:#fff}.bw-summary{max-width:560px;margin:-16px auto 28px;display:flex;justify-content:center;align-items:center}.bw-summary__step{display:none}.bw-summary__total{display:inline-flex;align-items:baseline;gap:8px;padding:7px 16px;border-radius:999px;background:var(--bw-card);border:1px solid var(--bw-line)}.bw-summary__label{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--bw-muted)}.bw-summary__amount{font-size:18px;font-weight:800;white-space:nowrap}.bw-summary__total.is-bump .bw-summary__amount{animation:bw-bump .3s ease-out}.bw-progress{display:block;height:3px;border-radius:3px;background:var(--bw-line);overflow:hidden}.bw-progress__bar{display:block;width:0;height:100%;border-radius:3px;background:var(--bw-accent);transition:width .3s ease}.bw-step{max-width:760px;margin:0 auto;text-align:center}.bw-h{margin:0 0 10px;font-size:clamp(24px,4vw,32px);line-height:1.15;font-weight:700;letter-spacing:-.01em}.bw-h:focus{outline:none}.bw-sub{margin:0 auto 28px;font-size:16px;color:var(--bw-muted)}.bw-sub--narrow{max-width:340px}.bw-opts{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:12px;text-align:left}.bw-opt{position:relative;display:flex;align-items:center;gap:14px;padding:18px 20px;cursor:pointer;background:var(--bw-card);border:2px solid var(--bw-line);border-radius:14px;transition:border-color .15s,background-color .15s,box-shadow .15s,transform .1s}.bw-opt:hover{border-color:color-mix(in srgb,var(--bw-accent) 45%,var(--bw-card))}.bw-opt:active{transform:scale(.99)}.bw-opt:has(input:focus-visible){outline:3px solid color-mix(in srgb,var(--bw-accent) 35%,transparent);outline-offset:2px}.bw-opt.is-selected{border-color:var(--bw-accent);background:var(--bw-tint);box-shadow:0 4px 14px color-mix(in srgb,var(--bw-accent) 14%,transparent)}.bw-opt.is-disabled{opacity:.5;cursor:not-allowed}.bw-opt__radio{flex:none;width:22px;height:22px;display:grid;place-items:center;border-radius:50%;border:2px solid #c9c9c9;background:#fff;transition:border-color .15s}.bw-opt__radio:after{content:"";width:10px;height:10px;border-radius:50%;background:var(--bw-accent);transform:scale(0);transition:transform .15s}.bw-opt.is-selected .bw-opt__radio{border-color:var(--bw-accent)}.bw-opt.is-selected .bw-opt__radio:after{transform:scale(1)}.bw-opt__icon{flex:none;min-width:30px;font-size:24px;line-height:1;text-align:center;white-space:nowrap}.bw-opt__body{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}.bw-opt__name{font-size:17px;font-weight:700;line-height:1.2}.bw-opt__desc{font-size:14px;line-height:1.35;color:var(--bw-muted)}.bw-opt__price{flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:2px;text-align:right}.bw-opt__now{font-size:18px;font-weight:800;color:var(--bw-accent);white-space:nowrap}.bw-opt__now small{font-size:12px;font-weight:600}.bw-opt__was{font-size:13px;color:var(--bw-muted);white-space:nowrap}.bw-opt__soldout{font-size:13px;font-weight:700;color:var(--bw-muted);text-transform:uppercase;letter-spacing:.04em}.bw-opts--grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));max-width:720px}.bw-opts--grid .bw-opt{flex-direction:column;justify-content:flex-start;gap:8px;padding:22px 14px 18px;text-align:center}.bw-opts--grid .bw-opt__radio{position:absolute;top:12px;left:12px;width:20px;height:20px}.bw-opts--grid .bw-opt__radio:after{width:9px;height:9px}.bw-opts--grid .bw-opt__icon{min-width:0;font-size:34px;margin-top:4px}.bw-opts--grid .bw-opt__body{flex:1 1 auto;align-items:center}.bw-opts--grid .bw-opt__price{align-items:center;text-align:center;margin-top:2px}.bw-group{max-width:720px;margin:0 auto 28px}.bw-group+.bw-group{padding-top:24px;border-top:1px solid var(--bw-line)}.bw-group__h{margin:0 0 4px;font-size:19px;font-weight:700}.bw-group__sub{margin:0 0 16px;font-size:14px;color:var(--bw-muted)}.bw-group .bw-opts{transition:opacity .15s}.bw-group.is-none .bw-opts{opacity:.45}.bw-none{margin-top:12px;display:inline-flex;align-items:center;gap:8px;padding:9px 16px;font:inherit;font-size:14px;color:inherit;background:var(--bw-card);border:1.5px dashed var(--bw-line);border-radius:999px;cursor:pointer}.bw-none:before{content:"";width:14px;height:14px;border-radius:50%;border:2px solid #c9c9c9;box-sizing:border-box}.bw-none[aria-pressed=true]{color:var(--bw-accent);border:1.5px solid var(--bw-accent);background:var(--bw-tint);font-weight:600}.bw-none[aria-pressed=true]:before{border-color:var(--bw-accent);background:radial-gradient(var(--bw-accent) 40%,transparent 45%)}.bw-upload{max-width:420px;margin:24px auto 0}.bw-drop{display:flex;flex-direction:column;align-items:center;gap:10px;padding:24px;cursor:pointer;border:1.5px dashed color-mix(in srgb,currentColor 25%,transparent);border-radius:var(--bw-radius);transition:background .15s,border-color .15s,opacity .15s}.bw-drop:has(input:focus-visible){outline:3px solid color-mix(in srgb,var(--bw-accent) 35%,transparent);outline-offset:2px}.bw-drop.is-over,.bw-drop.has-file{background:var(--bw-card);border-color:var(--bw-ink)}.bw-drop.has-file{border-style:solid}.bw-drop.is-busy{opacity:.6;cursor:progress}.bw-drop__title{font-size:14px;font-weight:600}.bw-drop__hint,.bw-drop__limits{font-size:12px;color:var(--bw-muted)}.bw-drop__limits{font-weight:600}.bw-note{margin:14px 0 0;font-size:13px;color:var(--bw-muted)}.bw-thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:10px;margin-top:14px}.bw-thumbs:empty{display:none}.bw-thumb{position:relative;aspect-ratio:1;overflow:hidden;border-radius:10px;background:#eee;border:1px solid var(--bw-line);animation:bw-pop .2s ease-out}.bw-thumb img{display:block;width:100%;height:100%;object-fit:cover}.bw-thumb__ph{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;width:100%;height:100%;padding:6px;box-sizing:border-box}.bw-thumb__ph-icon{font-size:24px}.bw-thumb__ph-name{max-width:100%;font-size:10px;color:#555;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bw-thumb__size{position:absolute;left:0;right:0;bottom:0;padding:3px 6px;font-size:10px;color:#fff;text-align:left;background:linear-gradient(transparent,#0009)}.bw-thumb__remove{position:absolute;top:5px;right:5px;width:24px;height:24px;padding:0;display:grid;place-items:center;border:0;border-radius:50%;background:#111111c7;color:#fff;font-size:15px;line-height:1;cursor:pointer}.bw-thumb__remove:hover{background:var(--bw-accent)}.bw-btn{display:inline-flex;justify-content:center;align-items:center;padding:13px 30px;font:inherit;font-weight:600;border:0;border-radius:999px;cursor:pointer;-webkit-appearance:none;appearance:none}.bw-btn--primary{background:var(--bw-ink);color:#fff}.bw-btn--primary:focus-visible{outline:3px solid color-mix(in srgb,var(--bw-ink) 35%,transparent);outline-offset:2px}.bw-btn--outline{padding:9px 20px;font-weight:500;background:transparent;border:1px solid currentColor}.bw-btn.is-loading{opacity:.7;pointer-events:none}.bw-link{padding:0;font:inherit;color:var(--bw-muted);text-decoration:underline;background:none;border:0;cursor:pointer}.bw-pill{display:inline-flex;align-items:center;gap:10px;margin:0 0 28px;padding:4px 14px 4px 4px;font-size:14px;border-radius:999px;background:color-mix(in srgb,var(--bw-accent) 12%,var(--bw-card))}.bw-badge{padding:4px 9px;font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#fff;background:var(--bw-ink);border-radius:999px}.bw-badge--float{position:absolute;top:8px;left:8px;z-index:1}.bw-extras{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;text-align:left}.bw-extra{background:var(--bw-card);border:1px solid var(--bw-line);border-radius:var(--bw-radius);transition:border-color .15s,box-shadow .15s,background-color .15s}.bw-extra.is-selected{border-color:var(--bw-accent);background:var(--bw-tint);box-shadow:0 0 0 1px var(--bw-accent)}.bw-extra.is-disabled{opacity:.5}.bw-extra:has(input[type=checkbox]:focus-visible){outline:3px solid color-mix(in srgb,var(--bw-accent) 35%,transparent);outline-offset:2px}.bw-extra__label{position:relative;display:flex;flex-direction:column;gap:6px;padding:14px;cursor:pointer}.bw-extra.is-disabled .bw-extra__label{cursor:not-allowed}.bw-extra__media{position:relative;display:block;aspect-ratio:1;margin-bottom:8px;overflow:hidden;border-radius:8px;background:#eee}.bw-extra__media img{display:block;width:100%;height:100%;object-fit:cover}.bw-extra__check{position:absolute;right:8px;bottom:8px;width:28px;height:28px;display:grid;place-items:center;border-radius:50%;background:var(--bw-ink);color:#fff;font-size:14px;opacity:0;transform:scale(.8);transition:.15s}.bw-extra.is-selected .bw-extra__check{opacity:1;transform:none}.bw-extra__title{font-weight:600}.bw-extra__desc{font-size:13px;color:var(--bw-muted)}.bw-extra__price{margin-top:6px;font-weight:600}.bw-extra__text{padding:0 14px 14px}.bw-input{width:100%;box-sizing:border-box;padding:10px 12px;font:inherit;color:inherit;background:var(--bw-card);border:1px solid var(--bw-line);border-radius:8px}.bw-input:focus{outline:2px solid var(--bw-accent);outline-offset:0}.bw-approve{max-width:560px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:12px}.bw-choice{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:8px;padding:14px 16px 20px;cursor:pointer;background:var(--bw-card);border:1px solid var(--bw-line);border-radius:var(--bw-radius);transition:border-color .15s,box-shadow .15s,background-color .15s}.bw-choice:has(input:focus-visible){outline:3px solid color-mix(in srgb,var(--bw-accent) 35%,transparent);outline-offset:2px}.bw-choice.is-selected{border-color:var(--bw-accent);background:var(--bw-tint);box-shadow:0 0 0 1px var(--bw-accent)}.bw-choice__img{width:100%;height:auto;border-radius:8px}.bw-choice__title{font-size:16px;font-weight:600}.bw-choice__text{font-size:13px;color:var(--bw-muted)}.bw-choice__price{font-size:13px}.bw-review{max-width:486px;margin:0 auto;text-align:left}.bw-row{display:flex;justify-content:space-between;gap:16px;padding:14px 0;border-bottom:1px solid var(--bw-line)}.bw-row__sub{margin-top:4px;font-size:13px;color:var(--bw-muted)}.bw-row__thumbs{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.bw-row__thumb{display:grid;place-items:center;width:48px;height:48px;object-fit:cover;border-radius:6px;background:#eee;font-size:18px}.bw-row__price{font-weight:600;white-space:nowrap}.bw-review-total{max-width:486px;margin:0 auto;padding-top:18px;display:flex;justify-content:space-between;align-items:baseline;font-size:18px}.bw-review-total strong{font-size:22px}.bw-nav{max-width:560px;margin:32px auto 0;display:flex;justify-content:space-between;align-items:center;gap:16px;transition:transform .2s ease}.bw-next{margin-left:auto;min-width:180px}.bw-error{margin:8px 0 0;font-size:13px;color:var(--bw-accent)}.bw-error:empty,.bw-alert:empty{display:none}.bw-alert{max-width:560px;margin:20px auto 0;display:flex;align-items:center;gap:10px;padding:12px 14px;box-sizing:border-box;font-size:14px;font-weight:600;text-align:left;color:var(--bw-accent);background:var(--bw-tint);border:1px solid var(--bw-accent);border-radius:10px;animation:bw-pop .2s ease-out}.bw-alert:before{content:"!";flex:none;width:22px;height:22px;display:grid;place-items:center;border-radius:50%;background:var(--bw-accent);color:#fff;font-size:13px;font-weight:800}.bw-invalid{animation:bw-shake .4s ease-in-out}.bw-opts.bw-invalid .bw-opt,.bw-approve.bw-invalid .bw-choice{border-color:var(--bw-accent)}.bw-drop.bw-invalid{border-color:var(--bw-accent);border-style:dashed;background:var(--bw-tint)}.bw-input.bw-invalid{border-color:var(--bw-accent)}@keyframes bw-shake{0%,to{transform:translate(0)}20%{transform:translate(-6px)}40%{transform:translate(6px)}60%{transform:translate(-4px)}80%{transform:translate(4px)}}@keyframes bw-pop{0%{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}@keyframes bw-bump{0%,to{transform:scale(1)}40%{transform:scale(1.12);color:var(--bw-accent)}}@media (max-width: 749px){.bw{padding:0 16px calc(96px + env(safe-area-inset-bottom))}.bw-stepper{display:none}.bw-summary{position:sticky;top:var(--bw-sticky-top, 0px);z-index:5;max-width:none;margin:0 -16px 20px;padding:12px 16px 10px;justify-content:space-between;gap:16px;background:color-mix(in srgb,var(--bw-card) 96%,transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border-bottom:1px solid var(--bw-line)}.bw-summary__step{flex:1;min-width:0;display:flex;flex-direction:column;gap:7px}.bw-summary__steptext{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.bw-summary__total{flex-direction:column;align-items:flex-end;gap:1px;padding:0;background:none;border:0}.bw-summary__label{font-size:10px}.bw-summary__amount{font-size:17px}.bw-h{margin-bottom:6px;font-size:24px}.bw-sub{margin-bottom:18px;font-size:14px}.bw-opts{gap:10px}.bw-opt{min-height:64px;padding:14px;gap:12px;border-radius:12px;box-sizing:border-box}.bw-opt__icon{min-width:26px;font-size:22px}.bw-opt__name{font-size:15px}.bw-opt__desc{font-size:13px}.bw-opt__now{font-size:16px}.bw-opt__was{font-size:12px}.bw-opts--grid{gap:8px}.bw-opts--grid .bw-opt{min-height:0;padding:26px 6px 12px;gap:6px}.bw-opts--grid .bw-opt__radio{top:8px;left:8px;width:18px;height:18px}.bw-opts--grid .bw-opt__radio:after{width:8px;height:8px}.bw-opts--grid .bw-opt__icon{font-size:26px;margin-top:0}.bw-opts--grid .bw-opt__name{font-size:14px}.bw-opts--grid .bw-opt__desc{font-size:11.5px}.bw-opts--grid .bw-opt__now{font-size:14px}.bw-opts--grid .bw-opt__was{font-size:11px}.bw-group{margin-bottom:22px}.bw-group+.bw-group{padding-top:18px}.bw-group__h{font-size:17px}.bw-group__sub{margin-bottom:12px;font-size:13px}.bw-none{margin-top:10px;padding:10px 16px}.bw-upload{margin-top:18px}.bw-drop{padding:18px 14px;gap:8px}.bw-drop .bw-btn--outline{padding:11px 22px}.bw-drop:not(.is-busy) .bw-drop__hint{display:none}.bw-thumbs{grid-template-columns:repeat(4,1fr);gap:8px}.bw-thumb__remove{top:4px;right:4px;width:28px;height:28px}.bw-pill{margin-bottom:18px;font-size:13px}.bw-extras{grid-template-columns:1fr 1fr;gap:10px}.bw-extra__label{padding:10px;gap:4px}.bw-extra__title{font-size:14px}.bw-extra__desc{font-size:12px}.bw-extra__text{padding:0 10px 10px}.bw-input{font-size:16px}.bw-approve{grid-template-columns:1fr;gap:10px}.bw-choice{flex-direction:row;flex-wrap:wrap;justify-content:flex-start;align-items:center;gap:4px 12px;padding:14px;text-align:left}.bw-choice__img{flex:none;width:88px;height:88px;object-fit:cover}.bw-choice__title,.bw-choice__text,.bw-choice__price{flex:1 1 calc(100% - 100px)}.bw-choice:not(:has(img))>span{flex-basis:100%}.bw-choice__price{font-weight:700}.bw-nav{position:fixed;left:0;right:0;bottom:0;z-index:20;max-width:none;margin:0;gap:12px;padding:12px 16px calc(12px + env(safe-area-inset-bottom));background:var(--bw-card);border-top:1px solid var(--bw-line);box-shadow:0 -6px 20px #0000000f}.bw-nav .bw-link{padding:12px 4px}.bw-next{flex:1;min-width:0;padding:15px 20px;font-size:16px}.bw.is-offscreen .bw-nav{transform:translateY(110%)}.bw-alert{position:fixed;left:12px;right:12px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:21;margin:0;background:var(--bw-card);box-shadow:0 6px 20px #0000001f}.bw-row{padding:12px 0}.bw-review-total{font-size:16px}.bw-review-total strong{font-size:20px}}@media (prefers-reduced-motion: reduce){.bw *,.bw *:before,.bw *:after{animation:none!important;transition:none!important}}</style>
+<script>{% raw %}(()=>{"use strict";if(customElements.get("brickset-wizard"))return;const b=window.Shopify&&Shopify.routes&&Shopify.routes.root||"/",m=1024*1024,g=/^image\/(jpeg|png|webp)$/i,w=/\.(jpe?g|png|webp|heic|heif)$/i,y=4*m,u=n=>parseInt(n,10)||0,f=(n,t)=>String(n||"").replace(/\[(\w+)\]/g,(e,s)=>s in t?t[s]:e),v=n=>/^image\//.test(n.type)||w.test(n.name),x=n=>n>=m?(n/m).toFixed(1)+" MB":Math.max(1,Math.round(n/1024))+" KB";function l(n,t,e){const s=document.createElement(n);return t&&(s.className=t),e!=null&&(s.textContent=e),s}function S(n,t){t=t||"{{amount}}";const e=t.match(/\{\{\s*(\w+)\s*\}\}/),s={amount:[2,",","."],amount_no_decimals:[0,",","."],amount_with_comma_separator:[2,".",","],amount_no_decimals_with_comma_separator:[0,".",","],amount_with_space_separator:[2," ",","],amount_no_decimals_with_space_separator:[0," ",","],amount_with_apostrophe_separator:[2,"'","."]},[r,i,a]=e&&s[e[1]]||s.amount,[c,h]=(n/100).toFixed(r).split("."),o=c.replace(/\B(?=(\d{3})+(?!\d))/g,i)+(h?a+h:"");return e?t.replace(e[0],o):o}async function E(n,t){if(!g.test(n.type)||typeof createImageBitmap!="function")return n;let e;try{e=await createImageBitmap(n,{imageOrientation:"from-image"})}catch{try{e=await createImageBitmap(n)}catch{return n}}const s=Math.min(1,t/Math.max(e.width,e.height));if(s===1&&n.size<=y)return e.close&&e.close(),n;const r=l("canvas");r.width=Math.round(e.width*s),r.height=Math.round(e.height*s);const i=r.getContext("2d");i.fillStyle="#fff",i.fillRect(0,0,r.width,r.height),i.drawImage(e,0,0,r.width,r.height),e.close&&e.close();const a=await new Promise(c=>r.toBlob(c,"image/jpeg",.9));return!a||a.size>=n.size?n:new File([a],n.name.replace(/\.[^.]+$/,"")+".jpg",{type:"image/jpeg",lastModified:Date.now()})}async function _(n){try{const t=await n.json();return t.description||t.message||""}catch{return""}}class k extends HTMLElement{connectedCallback(){if(this.ready||(this.arrange(),this.steps=Array.from(this.querySelectorAll("[data-bw-step]")),!this.steps.length))return;const t=this.querySelector("[data-bw-config]");this.cfg=t?JSON.parse(t.textContent):{},this.t=this.cfg.text||{},this.maxFiles=Number(this.cfg.maxFiles)||5,this.maxMb=Number(this.cfg.maxMb)||10,this.ui={stepper:this.querySelector("[data-bw-stepper]"),stepText:this.querySelector("[data-bw-steptext]"),progress:this.querySelector("[data-bw-progress]"),total:this.querySelector("[data-bw-total]"),totalAmount:this.querySelector("[data-bw-total-amount]"),drop:this.querySelector("[data-bw-drop]"),fileInput:this.querySelector("[data-bw-file]"),hint:this.querySelector("[data-bw-hint]"),thumbs:this.querySelector("[data-bw-thumbs]"),fileError:this.querySelector("[data-bw-file-error]"),review:this.querySelector("[data-bw-review]"),reviewTotal:this.querySelector("[data-bw-review-total]"),alert:this.querySelector("[data-bw-alert]"),back:this.querySelector("[data-bw-back]"),next:this.querySelector("[data-bw-next]")},this.state={groups:new Map,photos:[],processing:!1,extras:new Map,render:null},this.index=0,this.busy=!1,this.lastTotal=null,this.buildStepper(),this.bindGroups(),this.bindUpload(),this.bindExtras(),this.bindApprove(),this.ui.next.addEventListener("click",()=>this.next()),this.ui.back.addEventListener("click",()=>this.go(this.index-1,{focus:!0})),"IntersectionObserver"in window&&(this.observer=new IntersectionObserver(([e])=>this.classList.toggle("is-offscreen",!e.isIntersecting)),this.observer.observe(this)),this.go(0,{initial:!0}),this.ready=!0}disconnectedCallback(){this.observer&&this.observer.disconnect(),this.state&&this.state.photos.forEach(t=>URL.revokeObjectURL(t.url))}tx(t,e){return this.t[t]||e}money(t){return S(t,this.cfg.moneyFormat)}get current(){return this.steps[this.index]}arrange(){const t=this.querySelector('[data-bw-step="extras"]'),e=this.querySelectorAll("[data-bw-extra-slot]");t&&(e.length?t.querySelector("[data-bw-extras]").append(...e):t.remove());const s=this.querySelector('[data-bw-step="photos"]');s&&!this.querySelector("[data-bw-group]")&&s.remove()}buildStepper(){this.ui.stepper.replaceChildren(...this.steps.map((t,e)=>{const s=l("li","bw-stepper__item");return s.append(l("span","bw-stepper__dot",String(e+1)),l("span","bw-stepper__label",t.dataset.label||"")),s}))}bindGroups(){this.querySelectorAll("[data-bw-group]").forEach(t=>{const e={variantId:null,price:0,title:"",none:!1,el:t};this.state.groups.set(t.dataset.blockId,e);const s=Array.from(t.querySelectorAll("[data-bw-option]")),r=t.querySelector("[data-bw-none]"),i=()=>{s.forEach(a=>a.closest(".bw-opt").classList.toggle("is-selected",a.checked)),t.classList.toggle("is-none",e.none),r&&r.setAttribute("aria-pressed",String(e.none))};s.forEach(a=>a.addEventListener("change",()=>{a.checked&&(Object.assign(e,{variantId:a.value,price:u(a.dataset.price),title:a.dataset.title,none:!1}),i(),this.clearError(),this.refresh())})),r&&r.addEventListener("click",()=>{const a=!e.none;Object.assign(e,{none:a,variantId:null,price:0,title:""}),s.forEach(c=>c.checked=!1),i(),this.clearError(),this.refresh()})})}chosenGroups(){return Array.from(this.state.groups.values()).filter(t=>t.variantId)}bindUpload(){const{drop:t,fileInput:e,thumbs:s}=this.ui;t&&(e.addEventListener("change",()=>{const r=Array.from(e.files||[]);e.value="",r.length&&this.addPhotos(r)}),["dragenter","dragover"].forEach(r=>t.addEventListener(r,i=>{i.preventDefault(),t.classList.add("is-over")})),["dragleave","drop"].forEach(r=>t.addEventListener(r,i=>{i.preventDefault(),t.classList.remove("is-over")})),t.addEventListener("drop",r=>{const i=Array.from(r.dataTransfer&&r.dataTransfer.files||[]);i.length&&this.addPhotos(i)}),s.addEventListener("click",r=>{const i=r.target.closest("[data-bw-remove]");i&&this.removePhoto(u(i.dataset.bwRemove))}))}async addPhotos(t){const e=this.state;if(e.processing)return;const{drop:s,hint:r,fileError:i}=this.ui,a=r.textContent,c=this.maxMb*m,h=new Set;e.processing=!0,s.classList.add("is-busy"),r.textContent=this.tx("preparing","Preparing photos\u2026");for(const o of t){if(!v(o)){h.add(f(this.tx("notImage","\u201C[file]\u201D is not an image."),{file:o.name}));continue}if(e.photos.length>=this.maxFiles){h.add(f(this.tx("tooMany","You can upload up to [count] photos."),{count:this.maxFiles}));break}if(e.photos.some(p=>p.name===o.name&&p.originalSize===o.size))continue;const d=await E(o,this.cfg.resizePx||2500);if(d.size>c){h.add(f(this.tx("tooBig","\u201C[file]\u201D is larger than [size] MB."),{file:o.name,size:this.maxMb}));continue}e.photos.push({file:d,name:o.name,originalSize:o.size,url:URL.createObjectURL(d)})}e.processing=!1,s.classList.remove("is-busy"),r.textContent=a,i.textContent=Array.from(h).join(" "),this.renderThumbs(),e.photos.length&&this.clearError(),this.refresh()}removePhoto(t){const[e]=this.state.photos.splice(t,1);e&&URL.revokeObjectURL(e.url),this.ui.fileError.textContent="",this.renderThumbs(),this.refresh()}photoPreview(t,e){const s=()=>{const i=l("span",e?e+" bw-thumb__ph":"bw-thumb__ph");return i.append(l("span","bw-thumb__ph-icon","\u{1F4F7}")),e||i.append(l("span","bw-thumb__ph-name",t.name)),i};if(/heic|heif/i.test(t.file.type)||/\.(heic|heif)$/i.test(t.name))return s();const r=l("img",e||"");return r.src=t.url,r.alt=t.name,r.addEventListener("error",()=>r.replaceWith(s()),{once:!0}),r}renderThumbs(){const{photos:t}=this.state,{drop:e,thumbs:s}=this.ui,r=this.tx("remove","Remove");s.replaceChildren(...t.map((a,c)=>{const h=l("div","bw-thumb"),o=l("button","bw-thumb__remove","\xD7");return o.type="button",o.dataset.bwRemove=c,o.setAttribute("aria-label",r+" "+a.name),h.append(this.photoPreview(a),l("span","bw-thumb__size",x(a.file.size)),o),h}));const i=t.length>0;e.classList.toggle("has-file",i),e.querySelector("[data-bw-btn-first]").hidden=i,e.querySelector("[data-bw-btn-more]").hidden=!i,e.hidden=t.length>=this.maxFiles}bindExtras(){this.querySelectorAll("[data-bw-extra]").forEach(t=>{const e=t.querySelector("[data-bw-extra-check]"),s=t.querySelector("[data-bw-extra-text]"),r=s?s.querySelector("input"):null,i={variantId:t.dataset.variantId,price:u(t.dataset.price),title:t.dataset.title,input:r,property:r?r.dataset.property||"Text":null,error:r?r.dataset.error:"",selected:!1};this.state.extras.set(t.dataset.key,i),e.addEventListener("change",()=>{i.selected=e.checked,t.classList.toggle("is-selected",e.checked),s&&(s.hidden=!e.checked,e.checked&&r.focus({preventScroll:!0})),this.clearError(),this.refresh()}),r&&(r.addEventListener("input",()=>this.clearError()),r.addEventListener("keydown",a=>{a.key==="Enter"&&(a.preventDefault(),this.next())}))})}selectedExtras(){return Array.from(this.state.extras.values()).filter(t=>t.selected)}extraText(t){return t.input?t.input.value.trim():""}bindApprove(){const t=Array.from(this.querySelectorAll("[data-bw-choice]"));t.forEach(e=>{const s=e.querySelector("input");s.addEventListener("change",()=>{this.state.render=s.value==="yes",t.forEach(r=>r.classList.toggle("is-selected",r.querySelector("input").checked)),this.clearError(),this.refresh()})})}renderInfo(){const t=this.querySelector('[data-bw-step="approve"]');return t?{variantId:t.dataset.renderVariant,price:u(t.dataset.renderPrice),title:t.dataset.renderTitle,sub:t.dataset.renderSub}:null}totalCents(){let t=0;this.chosenGroups().forEach(s=>{t+=s.price}),this.selectedExtras().forEach(s=>{t+=s.price});const e=this.renderInfo();return this.state.render&&e&&(t+=e.price),t}updateTotal(){const t=this.totalCents();this.ui.total.hidden=t===0,t!==this.lastTotal&&(this.ui.totalAmount.textContent=this.money(t),this.lastTotal!==null&&t>0&&(this.ui.total.classList.remove("is-bump"),this.ui.total.offsetWidth,this.ui.total.classList.add("is-bump")),this.lastTotal=t)}validate(t){switch(t.dataset.bwStep){case"figures":{for(const e of this.state.groups.values())if(!e.variantId&&!e.none)return{msg:e.el.dataset.errSelect||"Please make a selection.",target:e.el.querySelector("[data-bw-options]")};return this.state.groups.size&&!this.chosenGroups().length?{msg:this.tx("noFigures","Please choose at least one figure."),target:this.querySelector("[data-bw-options]")}:null}case"photos":return this.state.processing?{msg:this.tx("preparing","Preparing photos\u2026")}:this.ui.drop&&!this.state.photos.length?{msg:this.tx("noPhoto","Please upload a photo to continue."),target:this.ui.drop}:null;case"extras":{const e=this.selectedExtras().find(s=>s.input&&!this.extraText(s));return e?{msg:e.error||this.tx("extrasText","Please fill in the text."),target:e.input,focus:!0}:null}case"approve":return this.state.render!==null?null:{msg:this.tx("approve","Please choose an option."),target:t.querySelector(".bw-approve")};default:return null}}next(){const t=this.current;if(t.dataset.bwStep==="review")return this.checkout();const e=this.validate(t);if(e)return this.flagError(e);this.go(this.index+1,{focus:!0})}go(t,{initial:e=!1,focus:s=!1}={}){if(t<0||t>=this.steps.length||(this.index=t,this.steps.forEach((a,c)=>{a.hidden=c!==t}),this.current.dataset.bwStep==="review"&&this.renderReview(),this.clearError(),this.refresh(),e))return;const r=u(getComputedStyle(this).getPropertyValue("--bw-sticky-top"))+20,i=this.getBoundingClientRect().top+window.scrollY-r;if(window.scrollY>i&&window.scrollTo({top:i,behavior:"smooth"}),s){const a=this.current.querySelector(".bw-h");a&&a.focus({preventScroll:!0})}}refresh(){const t=this.current,e=t.dataset.bwStep==="review",{next:s,back:r,stepper:i,stepText:a,progress:c}=this.ui;this.busy||(s.textContent=e?this.tx("checkout","Checkout"):this.tx("continue","Continue")),r.hidden=this.index===0,Array.from(i.children).forEach((h,o)=>{h.classList.toggle("is-done",o<this.index),h.classList.toggle("is-current",o===this.index),h.firstChild.textContent=o<this.index?"\u2713":String(o+1),o===this.index?h.setAttribute("aria-current","step"):h.removeAttribute("aria-current")}),a.textContent=f(this.tx("stepText","Step [n] of [total]"),{n:this.index+1,total:this.steps.length})+(t.dataset.label?" \xB7 "+t.dataset.label:""),c.style.width=(this.index+1)/this.steps.length*100+"%",this.updateTotal()}flagError({msg:t,target:e,focus:s}){if(this.clearError(),this.ui.alert.textContent=t||"",!e)return;e.offsetWidth,e.classList.add("bw-invalid"),s&&e.focus({preventScroll:!0});const r=e.getBoundingClientRect();(r.top<80||r.bottom>window.innerHeight-170)&&e.scrollIntoView({behavior:"smooth",block:"center"})}clearError(){this.ui.alert.textContent="",this.querySelectorAll(".bw-invalid").forEach(t=>t.classList.remove("bw-invalid"))}renderReview(){const t=[];this.chosenGroups().forEach(s=>t.push({title:s.title,price:s.price})),this.state.photos.length&&t.push({title:this.tx("photosTitle","Your photos"),sub:f(this.tx("photos","[count] photo(s)"),{count:this.state.photos.length}),photos:this.state.photos}),this.selectedExtras().forEach(s=>{const r=this.extraText(s);t.push({title:s.title,price:s.price,sub:r?s.property+": "+r:""})});const e=this.renderInfo();this.state.render&&e&&t.push({title:e.title,price:e.price,sub:e.sub}),this.ui.review.replaceChildren(...t.map(s=>{const r=l("div","bw-row"),i=l("div","bw-row__main");if(i.append(l("div","bw-row__title",s.title)),s.sub&&i.append(l("div","bw-row__sub",s.sub)),s.photos&&s.photos.length){const a=l("div","bw-row__thumbs");s.photos.forEach(c=>a.append(this.photoPreview(c,"bw-row__thumb"))),i.append(a)}return r.append(i,l("div","bw-row__price",s.price==null?"":this.money(s.price))),r})),this.ui.reviewTotal.textContent=this.money(t.reduce((s,r)=>s+(r.price||0),0))}async addToCart(t,e){const s=await fetch(b+"cart/add.js",{method:"POST",headers:e?{"Content-Type":"application/json",Accept:"application/json"}:{Accept:"application/json"},body:e?JSON.stringify(t):t});if(!s.ok)throw new Error(await _(s))}async rollback(t){try{const e=await(await fetch(b+"cart.js",{headers:{Accept:"application/json"}})).json(),s={};e.items.forEach(r=>{r.properties&&r.properties._set_id===t&&(s[r.key]=0)}),Object.keys(s).length&&await fetch(b+"cart/update.js",{method:"POST",headers:{"Content-Type":"application/json",Accept:"application/json"},body:JSON.stringify({updates:s})})}catch{}}async checkout(){if(this.busy)return;this.busy=!0;const t=this.ui.next,e=t.textContent;t.classList.add("is-loading"),t.disabled=!0,t.textContent="\u2026",this.clearError();const s="BW-"+Date.now().toString(36).toUpperCase()+Math.random().toString(36).slice(2,6).toUpperCase();try{const[r,...i]=this.chosenGroups(),{photos:a}=this.state;if(r){const o=new FormData;o.append("id",r.variantId),o.append("quantity","1"),a.forEach((d,p)=>{const q=a.length>1?"Photo "+(p+1):"Photo";o.append("properties["+q+"]",d.file,d.file.name)}),o.append("properties[_set_id]",s),await this.addToCart(o,!1)}const c=i.map(o=>({id:Number(o.variantId),quantity:1,properties:{_set_id:s}}));this.selectedExtras().forEach(o=>{const d={_set_id:s},p=this.extraText(o);o.input&&p&&(d[o.property]=p),c.push({id:Number(o.variantId),quantity:1,properties:d})});const h=this.renderInfo();this.state.render&&h&&c.push({id:Number(h.variantId),quantity:1,properties:{_set_id:s}}),c.length&&await this.addToCart({items:c},!0),window.location.href=b+(this.cfg.redirect==="cart"?"cart":"checkout")}catch(r){await this.rollback(s),this.flagError({msg:r.message||this.tx("cartError","Something went wrong. Please try again.")}),this.busy=!1,t.classList.remove("is-loading"),t.disabled=!1,t.textContent=e}}showBlock(t){const e=t.closest("[data-bw-step]"),s=this.steps.indexOf(e);s>-1&&s!==this.index&&this.go(s)}}customElements.define("brickset-wizard",k),document.addEventListener("shopify:block:select",n=>{const t=n.target.closest&&n.target.closest("brickset-wizard");t&&t.showBlock&&t.showBlock(n.target)})})();{% endraw %}</script>
